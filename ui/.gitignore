@@ -1,0 +1,19 @@
+# imp writes these - never commit them
+dist/
+.imp/
+
+# environment files hold secrets and per-developer values
+.env
+.env.*
+
+# dependencies/ is committed on purpose: vendored packages are part of the repo
+
+# Node.js and general JS tooling, for the parts of your workflow that use it
+node_modules/
+*.log
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
