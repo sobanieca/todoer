@@ -5,7 +5,7 @@ export const CONFIG_FILE = 'todoer.json'
 
 export const DEFAULT_MAX_IMAGE_KB = 150
 
-export const DEFAULT_PORT = 8020
+export const DEFAULT_PORT = 4507
 
 const KEYS = {
   maxImageKb: (value) => Number.isFinite(value) && value > 0,

@@ -20,7 +20,7 @@ deno task compile          # builds ./todoer (needs deno and imp)
 cd ~/code/my-project
 todoer init                # writes todoer.json and .todoer/
 todoer skill --init        # writes the todoer skill for Claude Code, Codex and Cursor
-todoer ui --open           # opens the page on http://localhost:8020
+todoer ui --open           # opens the page on http://localhost:4507
 ```
 
 1. Add todos in the page, or with `todoer add "<title>"`. Paste or drop images.
@@ -43,7 +43,7 @@ in [`docs/data.md`](docs/data.md).
   "mainBranch": "main",
   "worktreesDir": ".todoer/worktrees",
   "agentCommand": ["claude", "{prompt}"],
-  "port": 8020
+  "port": 4507
 }
 ```
 
@@ -51,7 +51,7 @@ in [`docs/data.md`](docs/data.md).
 
 | Task                | What it does                                                         |
 | ------------------- | -------------------------------------------------------------------- |
-| `deno task start`   | builds the page and serves a demo project on <http://localhost:8020> |
+| `deno task start`   | builds the page and serves a demo project on <http://localhost:4507> |
 | `deno task ui`      | builds the page and runs `todoer ui` in this repository              |
 | `deno task test`    | runs the tests                                                       |
 | `deno task check`   | runs `deno fmt`, `deno lint`, the tests, then imp fmt, lint and test |

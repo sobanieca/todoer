@@ -99,7 +99,7 @@ main branch stays as it was. Without `--keep`, the merge removes the worktree an
 | `mainBranch`   | the branch that pull requests go to          | the branch of the main checkout            |
 | `worktreesDir` | the folder for new worktrees, relative       | `.todoer/worktrees` or `.claude/worktrees` |
 | `agentCommand` | the command that runs an agent from the page | none                                       |
-| `port`         | the port of `todoer ui`                      | `8020`                                     |
+| `port`         | the port of `todoer ui`                      | `4507`                                     |
 
 An unknown key or a bad value stops every command, and the message names the key.
 

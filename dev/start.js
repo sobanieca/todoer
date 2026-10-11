@@ -135,7 +135,7 @@ const { flags } = parseArgs(Deno.args)
 const root = await Deno.makeTempDir({ prefix: 'todoer-demo-' })
 await seed(root)
 const project = await findProject(root)
-const server = await startUi(project, { port: flags.port ? parsePort(flags.port) : 8020 })
+const server = await startUi(project, { port: flags.port ? parsePort(flags.port) : 4507 })
 console.log(`Demo project: ${root}`)
 console.log(`Open ${server.url}  (Ctrl+C stops it and removes the demo project)`)
 const stop = async () => {
