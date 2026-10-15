@@ -1,3 +1,5 @@
+Website: https://sobanieca.github.io/todoer/
+
 # todoer
 
 todoer keeps the todos and the pull requests of a git project as plain files. AI agents and people
@@ -16,9 +18,24 @@ todoer is not released yet. Until version `1.0.0`, any part of it can change.
 
 ## Install
 
+todoer is one binary for Linux and macOS (x64 and arm64).
+
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sobanieca/todoer/main/install.sh | bash
+curl -fsSL sobanieca.github.io/todoer/install.sh | bash
 todoer update              # installs the latest release later
+```
+
+The script installs todoer to `/usr/local/bin`, for all users. If that folder is not writable, the
+script stops with an error. Then run it with `sudo`:
+
+```sh
+curl -fsSL sobanieca.github.io/todoer/install.sh | sudo bash
+```
+
+Or set your own folder with `INSTALL_DIR`. The folder must be on your `PATH`:
+
+```sh
+curl -fsSL sobanieca.github.io/todoer/install.sh | INSTALL_DIR=~/.local/bin bash
 ```
 
 Or build it: `cargo build --release`, then copy `target/release/todoer` to a folder on your `PATH`.

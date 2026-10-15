@@ -1,0 +1,2263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>todoer</title>
+    <meta name="description"
+      content="todoer keeps the todos and the pull requests of a git project as plain files. AI agents and people claim todos, work in git worktrees, and review the pull requests on the command line.">
+    <link rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+    <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f4ee;
+      --surface: #fffdf8;
+      --surface-2: #f1eee5;
+      --ink: #1c1a17;
+      --muted: #645f57;
+      --line: #e3ded2;
+      --line-strong: #d3ccbc;
+      --accent: #4f46e5;
+      --accent-ink: #3b33c4;
+      --accent-soft: #e7e5fb;
+      --marker: #ffd84d;
+      --marker-soft: #fff2bd;
+      --marker-ink: #7a5a00;
+      --done: #15803d;
+      --done-soft: #dcf2e2;
+      --warn: #b45309;
+      --warn-soft: #fbeedb;
+      --block: #b4413c;
+      --block-soft: #f8e3e1;
+      --code-bg: #efebe1;
+      --dot: rgba(28, 26, 23, 0.075);
+      --shadow: 0 1px 0 rgba(28, 26, 23, 0.04), 0 8px 24px -12px rgba(28, 26, 23, 0.18);
+      --term-bg: #1d1c24;
+      --term-ink: #e9e7f2;
+      --term-muted: #9b98ab;
+      --term-line: #2e2d38;
+      --term-ok: #6ee7a0;
+      --term-warn: #f6b86b;
+      --sans: "Geist", "Segoe UI", system-ui, sans-serif;
+      --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+      --serif: "Instrument Serif", Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #111115;
+        --surface: #19191f;
+        --surface-2: #202028;
+        --ink: #ecebe6;
+        --muted: #a3a09a;
+        --line: #2a2a33;
+        --line-strong: #383843;
+        --accent: #9d97ff;
+        --accent-ink: #bdb9ff;
+        --accent-soft: #27254a;
+        --marker: #e5bb2c;
+        --marker-soft: #3a3115;
+        --marker-ink: #f3d36b;
+        --done: #4ade80;
+        --done-soft: #12301f;
+        --warn: #f0a24b;
+        --warn-soft: #3a2a12;
+        --block: #f08a84;
+        --block-soft: #3a1c1b;
+        --code-bg: #1f1f27;
+        --dot: rgba(255, 255, 255, 0.055);
+        --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+        --term-bg: #0c0c10;
+        --term-ink: #e6e5ee;
+        --term-muted: #8d8a9c;
+        --term-line: #24242c;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #111115;
+      --surface: #19191f;
+      --surface-2: #202028;
+      --ink: #ecebe6;
+      --muted: #a3a09a;
+      --line: #2a2a33;
+      --line-strong: #383843;
+      --accent: #9d97ff;
+      --accent-ink: #bdb9ff;
+      --accent-soft: #27254a;
+      --marker: #e5bb2c;
+      --marker-soft: #3a3115;
+      --marker-ink: #f3d36b;
+      --done: #4ade80;
+      --done-soft: #12301f;
+      --warn: #f0a24b;
+      --warn-soft: #3a2a12;
+      --block: #f08a84;
+      --block-soft: #3a1c1b;
+      --code-bg: #1f1f27;
+      --dot: rgba(255, 255, 255, 0.055);
+      --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+      --term-bg: #0c0c10;
+      --term-ink: #e6e5ee;
+      --term-muted: #8d8a9c;
+      --term-line: #24242c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      background-image: radial-gradient(var(--dot) 1px, transparent 1.4px);
+      background-size: 22px 22px;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    code,
+    pre,
+    .mono {
+      font-family: var(--mono);
+    }
+    code.name {
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+    a {
+      color: var(--accent-ink);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+    h1,
+    h2,
+    h3 {
+      text-wrap: balance;
+      margin: 0;
+      line-height: 1.12;
+    }
+    p {
+      margin: 0;
+    }
+    p code,
+    li code,
+    .lane-card code {
+      font-size: 0.84em;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 5px;
+    }
+
+    .wrap {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding-inline: 20px;
+    }
+    @media (max-width: 560px) {
+      .wrap {
+        padding-inline: 16px;
+      }
+    }
+
+    /* header */
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-block: 22px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 20px;
+      color: var(--ink);
+    }
+    .brand:hover {
+      text-decoration: none;
+    }
+    .brand .mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+      transform: rotate(-4deg);
+    }
+    .brand .mark svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .gh {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--ink);
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+    }
+    .gh:hover {
+      text-decoration: none;
+      border-color: var(--accent);
+    }
+    .gh svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    /* hero */
+    .hero {
+      padding-block: 26px 8px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .eyebrow .tag {
+      color: var(--marker-ink);
+      background: var(--marker-soft);
+      border: 1px solid var(--marker);
+      border-radius: 999px;
+      padding: 1px 9px;
+      font-weight: 600;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 6.4vw, 68px);
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      max-width: 20ch;
+    }
+    .hero h1 em {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-style: italic;
+      letter-spacing: -0.01em;
+      background: linear-gradient(transparent 62%, var(--marker-soft) 62%, var(--marker-soft) 92%, transparent 92%);
+      padding-inline: 2px;
+    }
+    .hero .lead {
+      margin-top: 20px;
+      font-size: 19px;
+      color: var(--muted);
+      max-width: 56ch;
+    }
+    .hero .lead code.name {
+      color: var(--ink);
+    }
+    .actions {
+      margin-top: 26px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+      background: var(--surface);
+    }
+    .btn:hover {
+      text-decoration: none;
+      border-color: var(--accent);
+    }
+    .btn.primary {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
+    }
+    .btn.primary:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* stage */
+    .stage {
+      margin-top: 40px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .stage-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--muted);
+      background: var(--surface-2);
+    }
+    .stage-bar .where {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lights {
+      display: inline-flex;
+      gap: 6px;
+      flex: none;
+    }
+    .lights i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--line-strong);
+    }
+    .progress {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      flex: none;
+    }
+    .progress .meter {
+      width: 64px;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--line);
+      overflow: hidden;
+    }
+    .progress .meter b {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: var(--done);
+      border-radius: 99px;
+      transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .progress .ptext {
+      color: var(--ink);
+    }
+
+    .board {
+      --card-h: 76px;
+      --gap: 8px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px;
+    }
+    .col {
+      background: var(--surface-2);
+      border-radius: 12px;
+      padding: 8px;
+      min-width: 0;
+    }
+    .col-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    .col-head .ttl {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .col-head .ttl::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--c, var(--muted));
+    }
+    .col[data-col="todo"] {
+      --c: var(--line-strong);
+    }
+    .col[data-col="progress"] {
+      --c: var(--accent);
+    }
+    .col[data-col="pr"] {
+      --c: var(--marker);
+    }
+    .col[data-col="done"] {
+      --c: var(--done);
+    }
+    .col-head .count {
+      min-width: 20px;
+      text-align: center;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 99px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
+    .col-body {
+      --slots: 3;
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      min-height: calc(var(--slots) * var(--card-h) + (var(--slots) - 1) * var(--gap));
+    }
+
+    .card {
+      position: relative;
+      height: var(--card-h);
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 0 9px;
+      align-content: start;
+      padding: 10px 10px 9px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.4s, background 0.4s, opacity 0.4s;
+      will-change: transform;
+    }
+    .card.hot {
+      border-color: var(--accent);
+    }
+    .card .box {
+      width: 18px;
+      height: 18px;
+      margin-top: 1px;
+      border-radius: 5px;
+      border: 1.6px solid var(--line-strong);
+      display: grid;
+      place-items: center;
+      transition: background 0.35s, border-color 0.35s;
+    }
+    .card .box svg {
+      width: 12px;
+      height: 12px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 16;
+      stroke-dashoffset: 16;
+      transition: stroke-dashoffset 0.45s 0.15s ease-out;
+    }
+    .card .title {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.4s;
+      position: relative;
+      justify-self: start;
+      max-width: 100%;
+    }
+    .card .title::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 55%;
+      height: 1.5px;
+      width: 0;
+      background: currentColor;
+      transition: width 0.45s 0.3s ease-out;
+    }
+    .card .path {
+      display: none;
+    }
+    .card .chips {
+      grid-column: 2;
+      display: flex;
+      gap: 5px;
+      margin-top: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .chip {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1;
+      padding: 4px 7px;
+      border-radius: 99px;
+      background: var(--surface-2);
+      color: var(--muted);
+      border: 1px solid transparent;
+    }
+    .chip.lab {
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+    }
+    .chip.lab.docs {
+      color: var(--marker-ink);
+      background: var(--marker-soft);
+    }
+    .chip svg {
+      width: 11px;
+      height: 11px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .st[data-k="blocked"] {
+      color: var(--block);
+      background: var(--block-soft);
+    }
+    .st[data-k="ready"] {
+      color: var(--ink);
+      border-color: var(--line);
+      background: transparent;
+    }
+    .st[data-k="claimed"] {
+      color: var(--accent-ink);
+      border-color: var(--accent);
+      background: transparent;
+    }
+    .st[data-k="pending"] {
+      color: var(--marker-ink);
+      background: var(--marker-soft);
+    }
+    .st[data-k="comment"],
+    .st[data-k="changes"] {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+    .st[data-k="approved"],
+    .st[data-k="done"] {
+      color: var(--done);
+      background: var(--done-soft);
+    }
+    .st .short {
+      display: none;
+    }
+    .card.is-done .box {
+      background: var(--done);
+      border-color: var(--done);
+    }
+    .card.is-done .box svg {
+      stroke-dashoffset: 0;
+    }
+    .card.is-done .title {
+      color: var(--muted);
+    }
+    .card.is-done .title::after {
+      width: 100%;
+    }
+    .card.is-blocked .box {
+      border-style: dashed;
+    }
+    .card.is-blocked .title {
+      color: var(--muted);
+    }
+    @media (min-width: 980px) {
+      .board {
+        --card-h: 96px;
+      }
+      .card .path {
+        display: block;
+        grid-column: 2;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+    @media (max-width: 760px) {
+      .board {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 10px;
+        --card-h: 82px;
+      }
+      .col[data-col="pr"] .col-body,
+      .col[data-col="done"] .col-body {
+        --slots: 1;
+      }
+      .card {
+        grid-template-columns: 16px minmax(0, 1fr);
+        gap: 0 8px;
+        padding: 9px 8px 8px;
+      }
+      .card .box {
+        width: 16px;
+        height: 16px;
+      }
+      .card .title {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        font-size: 13px;
+      }
+      .card .title::after {
+        display: none;
+      }
+      .card.is-done .title {
+        text-decoration: line-through;
+      }
+      .card .chips {
+        flex-wrap: wrap;
+        row-gap: 4px;
+        margin-top: 7px;
+      }
+      .chip {
+        font-size: 10.5px;
+        padding: 3px 6px;
+      }
+      .st .long,
+      .chip.lab,
+      .stage-bar .dir-name {
+        display: none;
+      }
+      .st .short {
+        display: inline;
+      }
+    }
+
+    .mainline {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 6px 14px;
+      padding: 10px 16px;
+      border-top: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .branch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .branch svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+    .track {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .dots {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex: none;
+      width: 230px;
+      height: 14px;
+      overflow: hidden;
+    }
+    .dots::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 6px;
+      top: 50%;
+      height: 2px;
+      margin-top: -1px;
+      background: var(--line-strong);
+    }
+    .dots i {
+      position: relative;
+      flex: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--line-strong);
+    }
+    .dots i.t {
+      border-color: var(--accent);
+    }
+    .dots i.new {
+      animation: pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.4);
+    }
+    .dots i.t.new {
+      background: var(--accent);
+    }
+    @keyframes pop {
+      from {
+        transform: scale(0);
+      }
+    }
+    .commit {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .commit b {
+      color: var(--accent-ink);
+      font-weight: 500;
+    }
+    .commit .msg {
+      color: var(--ink);
+    }
+    @media (max-width: 760px) {
+      .mainline {
+        padding: 10px 12px;
+      }
+      .track {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+      .dots {
+        width: 100%;
+      }
+    }
+
+    .term {
+      background: var(--term-bg);
+      color: var(--term-ink);
+      padding: 14px 16px 16px;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .term-lines {
+      height: calc(1.6em * 7);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .tl {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      animation: rise 0.3s ease-out;
+    }
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+    }
+    .tl .who {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.5;
+      padding: 0 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+      vertical-align: 1px;
+    }
+    .who.agent {
+      background: #4f46e5;
+      color: #fff;
+    }
+    .who.you {
+      background: #ffd84d;
+      color: #2a2000;
+    }
+    .tl .ps {
+      color: var(--term-muted);
+    }
+    .tl.out {
+      color: var(--term-muted);
+    }
+    .tl.out .ok {
+      color: var(--term-ok);
+    }
+    .tl.out .wn {
+      color: var(--term-warn);
+    }
+    .tl.note {
+      color: var(--term-muted);
+      font-style: italic;
+    }
+    .caret::after {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 14px;
+      vertical-align: -2px;
+      background: var(--term-ink);
+      margin-left: 1px;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+    @media (max-width: 560px) {
+      .term {
+        font-size: 12px;
+        padding: 12px;
+      }
+      .term-lines {
+        height: calc(1.6em * 9);
+      }
+    }
+
+    .legend {
+      margin-top: 14px;
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      gap: 8px 18px;
+      flex-wrap: wrap;
+    }
+    .legend .who {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+
+    /* sections */
+    section.block {
+      padding-top: 88px;
+    }
+    .kicker {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent-ink);
+      margin-bottom: 12px;
+      display: block;
+    }
+    .block h2 {
+      font-size: clamp(28px, 4.2vw, 42px);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      max-width: 22ch;
+    }
+    .block h2 em {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-style: italic;
+    }
+    .block .intro {
+      margin-top: 14px;
+      color: var(--muted);
+      max-width: 60ch;
+    }
+
+    /* files */
+    .explorer {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .tree {
+      padding: 14px 10px;
+      border-right: 1px solid var(--line);
+      background: var(--surface-2);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .tree .dir {
+      display: block;
+      color: var(--muted);
+      padding: 4px 8px;
+      padding-left: calc(8px + var(--d, 0) * 16px);
+      white-space: nowrap;
+    }
+    .tree button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      color: var(--ink);
+      background: none;
+      border: 0;
+      border-radius: 7px;
+      padding: 4px 8px;
+      padding-left: calc(8px + var(--d, 0) * 16px);
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree button::before {
+      content: "";
+      flex: none;
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+      border: 1.5px solid var(--line-strong);
+    }
+    .tree button:hover {
+      background: var(--surface);
+    }
+    .tree button[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+    }
+    .tree button[aria-pressed="true"]::before {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .viewer {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .viewer-head {
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .viewer-head .fp {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .viewer-head p {
+      margin-top: 4px;
+      font-size: 14.5px;
+      color: var(--muted);
+    }
+    .viewer pre {
+      margin: 0;
+      padding: 16px 18px 20px;
+      font-size: 13px;
+      line-height: 1.7;
+      overflow-x: auto;
+      min-height: 280px;
+    }
+    .fm {
+      color: var(--muted);
+    }
+    .k {
+      color: var(--accent-ink);
+    }
+    .hl {
+      background: var(--marker-soft);
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+    .add {
+      color: var(--done);
+    }
+    .del {
+      color: var(--block);
+    }
+    .hd {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    @media (max-width: 760px) {
+      .explorer {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .tree {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 12px;
+      }
+      .tree .dir {
+        display: none;
+      }
+      .tree button {
+        width: auto;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        font-size: 12px;
+      }
+      .viewer pre {
+        min-height: 0;
+        font-size: 12px;
+        padding: 14px;
+      }
+      .viewer-head {
+        padding: 12px 14px;
+      }
+    }
+
+    /* lanes */
+    .lanes {
+      margin-top: 32px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .lanes {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .lane {
+      min-width: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .lane-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .lane-head .count {
+      font-size: 11px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 99px;
+      padding: 1px 8px;
+    }
+    .lane-cards {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+    .lane-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px 16px;
+      transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+    }
+    .lane-card:hover {
+      transform: translateY(-2px) rotate(-0.4deg);
+      border-color: var(--line-strong);
+      box-shadow: var(--shadow);
+    }
+    .lane-card h3 {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 16.5px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .lane-card h3 .box {
+      flex: none;
+      width: 18px;
+      height: 18px;
+      margin-top: 1px;
+      border-radius: 5px;
+      background: var(--done);
+      display: grid;
+      place-items: center;
+    }
+    .lane-card h3 .box svg {
+      width: 12px;
+      height: 12px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .lane-card p {
+      margin-top: 8px;
+      padding-left: 28px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .lane-card p code {
+      white-space: nowrap;
+    }
+    @media (max-width: 560px) {
+      .lane-card p {
+        padding-left: 0;
+      }
+      .lanes .lane-card pre {
+        margin-left: 0;
+      }
+      .install .install-note pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+    }
+    .lane-card pre {
+      margin: 10px 0 0 28px;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.6;
+      background: var(--code-bg);
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+
+    /* review */
+    .review {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 40px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .review {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 26px;
+      }
+    }
+    .targets {
+      margin-top: 24px;
+      display: grid;
+      gap: 6px;
+    }
+    .targets button {
+      display: grid;
+      grid-template-columns: minmax(0, auto) 1fr;
+      gap: 12px;
+      align-items: baseline;
+      text-align: left;
+      font: inherit;
+      font-size: 14.5px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .targets button code {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .targets button:hover {
+      border-color: var(--line-strong);
+    }
+    .targets button[aria-pressed="true"] {
+      border-color: var(--marker);
+      background: var(--marker-soft);
+      color: var(--ink);
+    }
+    .review .aside {
+      margin-top: 14px;
+      font-size: 14.5px;
+      color: var(--muted);
+    }
+    .diff {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: box-shadow 0.25s, border-color 0.25s;
+    }
+    .diff.sel-pr {
+      border-color: var(--marker);
+      box-shadow: 0 0 0 3px var(--marker-soft), var(--shadow);
+    }
+    .diff-cmd {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .diff-cmd .tg {
+      color: var(--ink);
+      font-weight: 600;
+      background: var(--marker-soft);
+      border-radius: 4px;
+      padding: 0 3px;
+    }
+    .diff-body {
+      padding: 10px 0 14px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+    .dfile {
+      margin: 0 8px;
+      padding: 4px 0;
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .dfile + .dfile {
+      margin-top: 10px;
+    }
+    .dfile.sel {
+      background: var(--marker-soft);
+    }
+    .drow {
+      display: grid;
+      grid-template-columns: 2.6em 2.6em 1.6em minmax(0, 1fr);
+      white-space: pre;
+      padding-inline: 8px;
+      border-radius: 5px;
+      transition: background 0.2s;
+    }
+    .drow .n {
+      color: var(--muted);
+      text-align: right;
+      padding-right: 0.6em;
+      opacity: 0.8;
+    }
+    .drow .s {
+      text-align: center;
+      color: var(--muted);
+    }
+    .drow.a {
+      background: var(--done-soft);
+    }
+    .drow.a .s,
+    .drow.a .c {
+      color: var(--done);
+    }
+    .drow.r {
+      background: var(--block-soft);
+    }
+    .drow.r .s,
+    .drow.r .c {
+      color: var(--block);
+    }
+    .drow.sel {
+      background: var(--marker);
+      color: #2a2000;
+    }
+    .drow.sel .n,
+    .drow.sel .s,
+    .drow.sel .c {
+      color: #2a2000;
+    }
+    .dhead {
+      padding: 2px 16px 4px;
+      font-weight: 600;
+      white-space: pre;
+    }
+    .dhead span {
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .dcomment {
+      margin: 4px 8px 4px calc(6.8em + 8px);
+      padding: 6px 10px;
+      border-left: 3px solid var(--warn);
+      background: var(--warn-soft);
+      border-radius: 0 8px 8px 0;
+      font-family: var(--sans);
+      font-size: 13.5px;
+      line-height: 1.45;
+      white-space: normal;
+    }
+    .dcomment b {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--warn);
+      margin-right: 6px;
+    }
+    @media (max-width: 560px) {
+      .diff-body {
+        font-size: 11.5px;
+      }
+      .drow {
+        grid-template-columns: 2.2em 2.2em 1.4em minmax(0, 1fr);
+      }
+      .dcomment {
+        margin-left: 8px;
+      }
+    }
+
+    /* start */
+    .start {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 40px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .start {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 26px;
+      }
+    }
+    .shell {
+      margin: 22px 0 0;
+      background: var(--term-bg);
+      color: var(--term-ink);
+      border-radius: 14px;
+      padding: 16px 18px;
+      font-size: 13px;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+    .shell .c {
+      color: var(--term-muted);
+    }
+    .shell .p {
+      color: var(--term-muted);
+      user-select: none;
+    }
+    .steps {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      counter-reset: s;
+      display: grid;
+      gap: 0;
+    }
+    .steps li {
+      counter-increment: s;
+      position: relative;
+      padding: 0 0 22px 46px;
+      color: var(--muted);
+      font-size: 15.5px;
+    }
+    .steps li::before {
+      content: counter(s);
+      position: absolute;
+      left: 0;
+      top: -2px;
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+    }
+    .steps li::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 32px;
+      bottom: 4px;
+      width: 2px;
+      background: var(--line);
+    }
+    .steps li:last-child::after {
+      display: none;
+    }
+    .steps li strong {
+      color: var(--ink);
+      font-weight: 600;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* install */
+    .install {
+      padding-top: 88px;
+    }
+    .install h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .cmd-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 12px 12px 16px;
+      box-shadow: var(--shadow);
+    }
+    .cmd-box code {
+      flex: 1;
+      min-width: 0;
+      font-size: 14px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .cmd-box button {
+      flex: none;
+      font: 500 13px var(--sans);
+      color: var(--ink);
+      background: var(--code-bg);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .cmd-box button:hover {
+      border-color: var(--accent);
+    }
+    .install-note {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 12px;
+      font-size: 14.5px;
+      color: var(--muted);
+      display: grid;
+      gap: 8px;
+    }
+    .install-note pre {
+      margin: 0;
+      font-size: 13px;
+      padding: 8px 10px;
+      background: var(--code-bg);
+      color: var(--ink);
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .install-note code {
+      font-size: 0.86em;
+      background: var(--code-bg);
+      color: var(--ink);
+      padding: 1px 5px;
+      border-radius: 5px;
+    }
+    .install-note pre code {
+      background: none;
+      padding: 0;
+      font-size: inherit;
+    }
+    .install > p {
+      font-size: 14.5px;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
+    footer {
+      padding-block: 30px 40px;
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      gap: 10px 18px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--line);
+      margin-top: 48px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <a class="brand" href="https://sobanieca.github.io/todoer/"><span
+            class="mark"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>todoer</a>
+        <a class="gh" href="https://github.com/sobanieca/todoer" target="_blank"
+          rel="noopener">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </header>
+
+      <section class="hero">
+        <p class="eyebrow"><span class="tag">pre-1.0</span>for people and AI agents</p>
+        <h1>Todos and pull requests, <em>as plain files</em> in your git repo.</h1>
+        <p class="lead"><code class="name">todoer</code> is one binary. Agents and people claim todos, work in git worktrees, and review the pull requests on the command line. No database, no server, no account.</p>
+        <div class="actions">
+          <a class="btn primary" href="#install">Install</a>
+          <a class="btn" href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md"
+            target="_blank" rel="noopener">Read the commands</a>
+        </div>
+
+        <div class="stage" id="stage" aria-label="Animated example: an agent claims a todo, submits a pull request, you review it and merge it">
+          <div class="stage-bar">
+            <span class="where"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="dir-name">~/code/my-project</span></span>
+            <span class="progress" title="todoer progress auth"><span class="meter"><b id="meter"></b></span><span class="ptext" id="ptext">auth 0/2 done (0%)</span></span>
+          </div>
+
+          <div class="board" id="board">
+            <div class="col" data-col="todo">
+              <div class="col-head"><span class="ttl">todo</span><span class="count">3</span></div>
+              <div class="col-body">
+                <article class="card" id="card-login">
+                  <span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
+                  <span class="title">Fix the login crash</span>
+                  <span class="path">todo/fix-the-login-crash.md</span>
+                  <span class="chips"><span class="chip lab">auth</span><span class="chip st" data-k="ready">ready</span></span>
+                </article>
+                <article class="card" id="card-docs">
+                  <span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
+                  <span class="title">Write the API docs</span>
+                  <span class="path">todo/write-the-api-docs.md</span>
+                  <span class="chips"><span class="chip lab docs">docs</span><span class="chip st" data-k="ready">ready</span></span>
+                </article>
+                <article class="card is-blocked" id="card-rate">
+                  <span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
+                  <span class="title">Add rate limiting</span>
+                  <span class="path">todo/add-rate-limiting.md</span>
+                  <span class="chips"><span class="chip lab">auth</span><span class="chip st" data-k="blocked"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>blocked</span></span>
+                </article>
+              </div>
+            </div>
+            <div class="col" data-col="progress">
+              <div class="col-head"><span class="ttl">in-progress</span><span class="count">0</span></div>
+              <div class="col-body"></div>
+            </div>
+            <div class="col" data-col="pr">
+              <div class="col-head"><span class="ttl">pull request</span><span class="count">0</span></div>
+              <div class="col-body"></div>
+            </div>
+            <div class="col" data-col="done">
+              <div class="col-head"><span class="ttl">done</span><span class="count">0</span></div>
+              <div class="col-body"></div>
+            </div>
+          </div>
+
+          <div class="mainline">
+            <span class="branch"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/></svg>main</span>
+            <span class="track"><span class="dots" id="dots" aria-hidden="true"><i></i><i></i></span><span class="commit" id="commit"><b>83f9b44</b> <span class="msg">Plan the auth work</span></span></span>
+          </div>
+
+          <div class="term" aria-live="off">
+            <div class="term-lines" id="term"></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><span class="who agent" style="background:#4f46e5;color:#fff">agent-1</span>an AI agent runs the command</span>
+          <span><span class="who you" style="background:#ffd84d;color:#2a2000">you</span>you run it, or ask your agent to</span>
+        </div>
+      </section>
+
+      <section class="block" id="files">
+        <span class="kicker">// everything is a file</span>
+        <h2>Nothing to host. <em>It is all in git.</em></h2>
+        <p class="intro">A todo is a markdown file with a <code>status</code> field in its front matter. Its path is its id. A pull request is a folder in <code>.todoer/prs/</code> on the main branch. A person and an agent can read every file, and git history keeps every change.</p>
+
+        <div class="explorer">
+          <nav class="tree" aria-label="Files that todoer writes">
+            <span class="dir">my-project/</span>
+            <button type="button" style="--d:1" data-file="cfg" aria-pressed="false">todoer.json</button>
+            <span class="dir" style="--d:1">todo/</span>
+            <button type="button" style="--d:2" data-file="todo1" aria-pressed="true">fix-the-login-crash.md</button>
+            <button type="button" style="--d:2" data-file="todo2" aria-pressed="false">add-rate-limiting.md</button>
+            <span class="dir" style="--d:1">.todoer/</span>
+            <span class="dir" style="--d:2">prs/fix-the-login-crash/</span>
+            <button type="button" style="--d:3" data-file="prmd" aria-pressed="false">pr.md</button>
+            <button type="button" style="--d:3" data-file="prpatch" aria-pressed="false">pr.patch</button>
+            <button type="button" style="--d:3" data-file="review" aria-pressed="false">review.md</button>
+            <span class="dir" style="--d:2">teams/</span>
+            <button type="button" style="--d:3" data-file="team" aria-pressed="false">backend.md</button>
+            <button type="button" style="--d:2" data-file="owners" aria-pressed="false">codeowners</button>
+          </nav>
+
+          <div class="viewer">
+            <div class="fv" data-file="todo1">
+              <div class="viewer-head"><span class="fp">todo/fix-the-login-crash.md</span><p>A todo. <code>todoer claim</code> sets the status and the assignee. todoer changes only the fields that a command names.</p></div>
+<pre><span class="fm">---</span>
+<span class="k">title:</span> Fix the login crash
+<span class="k">status:</span> <span class="hl">in-progress</span>
+<span class="k">assignee:</span> agent-1@example.com
+<span class="k">labels:</span> [auth]
+<span class="fm">---</span>
+
+Steps to reproduce: sign in with an expired token.
+The app stops after the third retry.</pre>
+            </div>
+            <div class="fv" data-file="todo2" hidden>
+              <div class="viewer-head"><span class="fp">todo/add-rate-limiting.md</span><p>This todo waits for another one. <code>todoer ls</code> shows it as <code>blocked</code> until the other todo is <code>done</code>.</p></div>
+<pre><span class="fm">---</span>
+<span class="k">title:</span> Add rate limiting
+<span class="k">status:</span> todo
+<span class="k">labels:</span> [auth]
+<span class="k">dependsOn:</span> <span class="hl">[todo/fix-the-login-crash.md]</span>
+<span class="fm">---</span>
+
+Limit the sign-in attempts for each account.</pre>
+            </div>
+            <div class="fv" data-file="cfg" hidden>
+              <div class="viewer-head"><span class="fp">todoer.json</span><p>The settings, at the project root. Every key is optional. The default main branch is <code>origin/HEAD</code>, else <code>main</code>, else <code>master</code>.</p></div>
+<pre>{
+  <span class="k">"mainBranch"</span>: "main"
+}</pre>
+            </div>
+            <div class="fv" data-file="prmd" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.md</span><p>The pull request: title, author, branch, base and todos. <code>-m</code> of a later submit writes the <code>## Update</code> section.</p></div>
+<pre><span class="fm">---</span>
+<span class="k">title:</span> Fix the login crash
+<span class="k">author:</span> agent-1@example.com
+<span class="k">branch:</span> fix-login
+<span class="k">base:</span> f9582bb76d212ae8cfec79eeb2ced593240cf464
+<span class="k">todos:</span> [todo/fix-the-login-crash.md]
+<span class="fm">---</span>
+
+Use the retry constant.
+
+<span class="hd">## Update</span>
+
+Added the test.</pre>
+            </div>
+            <div class="fv" data-file="prpatch" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.patch</span><p>The <code>git format-patch</code> series of the latest submit. <code>todoer pr merge</code> applies it with <code>git am --3way</code>. Next to it, <code>pr.diff</code> holds the combined diff for the review.</p></div>
+<pre><span class="fm">From 5a49e712aa8c0b763a4057f2910c84ea08044048 Mon Sep 17 00:00:00 2001
+From: agent &lt;agent-1@example.com&gt;
+Subject: [PATCH] Fix the login crash</span>
+
+diff --git a/src/auth.rs b/src/auth.rs
+--- a/src/auth.rs
++++ b/src/auth.rs
+@@ -1,4 +1,4 @@
+ fn login() {
+<span class="del">-    let retries = 3;</span>
+<span class="add">+    let retries = MAX_RETRIES;</span>
+     connect(retries);
+ }</pre>
+            </div>
+            <div class="fv" data-file="review" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/review.md</span><p>The review of the latest patch: the verdict and the comments. A comment that is not committed is a draft. <code>approve</code> and <code>request-changes</code> commit the file.</p></div>
+<pre><span class="fm">---</span>
+<span class="k">verdict:</span> <span class="hl">changes-requested</span>
+<span class="k">reviewer:</span> you@example.com
+<span class="fm">---</span>
+
+Close. One small thing.
+
+<span class="hd">### c1 `src/auth.rs:2` you@example.com</span>
+
+<span class="fm">&gt;     let retries = MAX_RETRIES;</span>
+
+Add a test for the retry path.</pre>
+            </div>
+            <div class="fv" data-file="team" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/teams/backend.md</span><p>The members of a team, by git email. A member can be an agent.</p></div>
+<pre><span class="hd"># Backend</span>
+
+- you@example.com
+- agent-1@example.com</pre>
+            </div>
+            <div class="fv" data-file="owners" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/codeowners</span><p>The code owners, in the CODEOWNERS syntax. When the file is missing, todoer reads <code>.github/CODEOWNERS</code>. The last rule that matches wins.</p></div>
+<pre>*.rs      <span class="k">@backend</span>
+/docs/    <span class="k">@writers</span>
+src/old.rs  other@example.com</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="features">
+        <span class="kicker">// the board</span>
+        <h2>Plan the work, do the work, <em>review the work.</em></h2>
+        <p class="intro">Each step uses git and the files above. The help text, <code>todoer help</code>, shows every command on one screen.</p>
+
+        <div class="lanes">
+          <div class="lane">
+            <div class="lane-head"><span>plan</span><span class="count">3</span></div>
+            <div class="lane-cards">
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A todo is a markdown file</h3>
+                <p><code>add</code> writes the file and prints its path. The text can come on stdin. <code>check</code> reports bad todos.</p>
+                <pre>todoer add -t "Fix the login crash" -p todo -l auth</pre>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Dependencies, never a cycle</h3>
+                <p><code>dep add</code> refuses a cycle. <code>ls --ready</code> lists the todos that can start now, and <code>dep show</code> prints the tree.</p>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Labels show the progress</h3>
+                <p>A label groups related todos. <code>progress</code> lists the open ones in dependency order.</p>
+                <pre>$ todoer progress auth
+auth  1/2 done (50%)  [#-]</pre>
+              </div>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-head"><span>work</span><span class="count">3</span></div>
+            <div class="lane-cards">
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A claim is a commit on main</h3>
+                <p>Every agent sees at once who works on a todo. A claim refuses a todo of another person or a blocked todo, and a second claim waits for the first.</p>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Agents work in worktrees</h3>
+                <p><code>pr submit</code> takes the commits of the branch after the merge base. There is nothing to push and no hosting service.</p>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>One command makes it a skill</h3>
+                <p><code>skill --init</code> writes the workflow as a <code>SKILL.md</code> for Claude Code, Codex and Cursor. <code>todoer skill</code> prints it.</p>
+              </div>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-head"><span>review</span><span class="count">3</span></div>
+            <div class="lane-cards">
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A pull request is a patch</h3>
+                <p>The review needs no branch. <code>pr merge</code> applies the patch on the main branch and sets the todos to <code>done</code>, in one commit.</p>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>No merge with open comments</h3>
+                <p><code>pr merge</code> stops on a draft comment and on a sent comment. <code>pr submit --update</code> replaces the patch and removes the review.</p>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Code owners filter the review</h3>
+                <p>Teams and CODEOWNERS rules decide who owns a file. <code>--mine</code>, <code>--owner</code> and <code>--unowned</code> filter <code>summary</code>, <code>details</code> and <code>review</code>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block review" id="review">
+        <div>
+          <span class="kicker">// review in the terminal</span>
+          <h2>Comment on a line, a file, a folder <em>or the whole thing.</em></h2>
+          <p class="intro">Ask your agent to explain the patch and to add your comments. It runs <code>pr details</code> and <code>pr comment</code>. Or read it yourself with <code>todoer pr review &lt;slug&gt;</code>. Select a target:</p>
+          <div class="targets" id="targets">
+            <button type="button" data-t="src/auth.rs:2" aria-pressed="true"><code>src/auth.rs:2</code><span>line 2 of the new version</span></button>
+            <button type="button" data-t="src/auth.rs:1-3" aria-pressed="false"><code>src/auth.rs:1-3</code><span>lines 1 to 3 of the new version</span></button>
+            <button type="button" data-t="src/auth.rs:old:2" aria-pressed="false"><code>src/auth.rs:old:2</code><span>line 2 of the old version, a removed line</span></button>
+            <button type="button" data-t="src/auth.rs" aria-pressed="false"><code>src/auth.rs</code><span>the whole file</span></button>
+            <button type="button" data-t="src/" aria-pressed="false"><code>src/</code><span>the whole folder</span></button>
+            <button type="button" data-t="" aria-pressed="false"><code>(none)</code><span>the whole pull request</span></button>
+          </div>
+          <p class="aside">A target can also name a file that the pull request does not change, to point to code that must change too.</p>
+        </div>
+
+        <div class="diff" id="diff">
+          <div class="diff-cmd">$ todoer pr comment fix-the-login-crash <span class="tg" id="tg">src/auth.rs:2</span> "Add a test for the retry path."</div>
+          <div class="diff-body" role="img" aria-label="Output of todoer pr details: the diff with line numbers">
+            <div class="dfile" data-f="auth">
+              <div class="dhead">src/auth.rs  <span>(M, +1 -1)</span></div>
+              <div class="drow"><span class="n"></span><span class="n"></span><span class="s">|</span><span class="c">@@ -1,4 +1,4 @@</span></div>
+              <div class="drow" data-new="1"><span class="n">1</span><span class="n">1</span><span class="s">|</span><span class="c">  fn login() {</span></div>
+              <div class="drow r" data-old="2"><span class="n">2</span><span class="n"></span><span class="s">-</span><span class="c">    let retries = 3;</span></div>
+              <div class="drow a" data-new="2"><span class="n"></span><span class="n">2</span><span class="s">+</span><span class="c">    let retries = MAX_RETRIES;</span></div>
+              <div class="dcomment"><b>[c1] (draft)</b>you@example.com: Add a test for the retry path.</div>
+              <div class="drow" data-new="3"><span class="n">3</span><span class="n">3</span><span class="s">|</span><span class="c">    connect(retries);</span></div>
+              <div class="drow" data-new="4"><span class="n">4</span><span class="n">4</span><span class="s">|</span><span class="c">  }</span></div>
+            </div>
+            <div class="dfile" data-f="limits">
+              <div class="dhead">src/limits.rs  <span>(A, +1 -0)</span></div>
+              <div class="drow"><span class="n"></span><span class="n"></span><span class="s">|</span><span class="c">@@ -0,0 +1 @@</span></div>
+              <div class="drow a" data-new="1"><span class="n"></span><span class="n">1</span><span class="s">+</span><span class="c">pub const MAX_RETRIES: u32 = 3;</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block start" id="start">
+        <div>
+          <span class="kicker">// start</span>
+          <h2>From install <em>to the first merge.</em></h2>
+          <p class="intro">Run every command in a git project, in the main checkout or in any of its worktrees.</p>
+<pre class="shell"><span class="p">$ </span>cd ~/code/my-project
+<span class="p">$ </span>todoer skill --init
+<span class="c">wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
+wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
+<span class="p">$ </span>todoer add -t "Fix the login crash" -p todo -l auth "Steps to reproduce: ..."
+<span class="c">todo/fix-the-login-crash.md</span>
+<span class="p">$ </span>git add todo &amp;&amp; git commit -m "Plan the auth work"</pre>
+        </div>
+        <ol class="steps">
+          <li><strong>Hand the todo to an agent</strong>Ask it to work on <code>todo/fix-the-login-crash.md</code>. It runs <code>todoer claim</code>, makes a worktree, commits and runs <code>todoer pr submit</code>.</li>
+          <li><strong>Review with the agent</strong>Ask it to explain the patch and to add your comments. Or use <code>todoer pr review &lt;slug&gt;</code>.</li>
+          <li><strong>Send the review</strong><code>todoer pr request-changes &lt;slug&gt;</code> or <code>todoer pr approve &lt;slug&gt;</code>.</li>
+          <li><strong>The agent updates the patch</strong>It does what the comments ask and runs <code>todoer pr submit --update</code>. Review the new patch from the start.</li>
+          <li><strong>Merge</strong><code>todoer pr merge &lt;slug&gt;</code>. It stops while the review has comments.</li>
+        </ol>
+      </section>
+
+      <section class="install" id="install">
+        <h2>Install</h2>
+        <div class="cmd-box">
+          <code
+            id="install-cmd">curl -fsSL sobanieca.github.io/todoer/install.sh | bash</code>
+          <button type="button" id="copy-btn">Copy</button>
+        </div>
+        <div class="install-note">
+          <p>The script installs <code>todoer</code> to <code>/usr/local/bin</code>, for all users. If that folder is not writable, the script stops with an error. Then run it with <code>sudo</code>:</p>
+          <pre><code>curl -fsSL sobanieca.github.io/todoer/install.sh | sudo bash</code></pre>
+          <p>Or pick your own folder with <code>INSTALL_DIR</code>. It must be a folder on your <code>PATH</code>:</p>
+          <pre><code>curl -fsSL sobanieca.github.io/todoer/install.sh | INSTALL_DIR=~/.local/bin bash</code></pre>
+        </div>
+        <p>A single binary for Linux and macOS (x64 and arm64), no runtime needed. Update it any time with <code>todoer update</code>. Run <code>todoer help</code> to see every command. todoer is not released yet: until version 1.0.0, any part of it can change.</p>
+      </section>
+
+      <footer>
+        <span><code class="name">todoer</code> &middot; MIT license &middot; pre-1.0</span>
+        <a href="https://github.com/sobanieca/todoer" target="_blank"
+          rel="noopener">GitHub</a>
+        <a href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md"
+          target="_blank" rel="noopener">Commands</a>
+        <a href="https://github.com/sobanieca/todoer/blob/main/docs/data.md"
+          target="_blank" rel="noopener">Files</a>
+        <a href="https://github.com/sobanieca/todoer/releases/latest"
+          target="_blank" rel="noopener">Binaries for Linux and macOS</a>
+      </footer>
+    </div>
+
+    <script>
+    (function () {
+      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      /* ---------- board demo ---------- */
+      var board = document.getElementById("board");
+      var term = document.getElementById("term");
+      var dots = document.getElementById("dots");
+      var commitEl = document.getElementById("commit");
+      var meter = document.getElementById("meter");
+      var ptext = document.getElementById("ptext");
+      var cards = {
+        login: document.getElementById("card-login"),
+        docs: document.getElementById("card-docs"),
+        rate: document.getElementById("card-rate")
+      };
+      var LOCK = '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+      var BUBBLE = '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+      var CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+      var timers = [];
+
+      function later(fn, ms) {
+        timers.push(setTimeout(fn, ms));
+      }
+      function body(col) {
+        return board.querySelector('[data-col="' + col + '"] .col-body');
+      }
+      function counts() {
+        Array.prototype.forEach.call(board.querySelectorAll(".col"), function (c) {
+          c.querySelector(".count").textContent = c.querySelectorAll(".card").length;
+        });
+      }
+      function setStatus(card, k, html) {
+        var st = card.querySelector(".st");
+        st.setAttribute("data-k", k);
+        st.innerHTML = html;
+      }
+      function both(longText, shortText) {
+        return '<span class="long">' + longText + '</span><span class="short">' + shortText + "</span>";
+      }
+      function flip(change) {
+        var all = Array.prototype.slice.call(board.querySelectorAll(".card"));
+        var first = all.map(function (el) {
+          return el.getBoundingClientRect();
+        });
+        change();
+        counts();
+        if (reduce || !Element.prototype.animate) return;
+        all.forEach(function (el, i) {
+          var last = el.getBoundingClientRect();
+          var dx = first[i].left - last.left;
+          var dy = first[i].top - last.top;
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+          el.animate(
+            [
+              { transform: "translate(" + dx + "px," + dy + "px) rotate(-2deg) scale(1.03)", boxShadow: "0 18px 30px -16px rgba(0,0,0,.35)" },
+              { transform: "none", boxShadow: "none" }
+            ],
+            { duration: 700, easing: "cubic-bezier(.2,.8,.2,1)" }
+          );
+        });
+      }
+      function move(card, col, first) {
+        flip(function () {
+          var b = body(col);
+          if (first) b.insertBefore(card, b.firstChild);
+          else b.appendChild(card);
+        });
+      }
+      function hot(card) {
+        card.classList.add("hot");
+        later(function () {
+          card.classList.remove("hot");
+        }, 900);
+      }
+      function addCommit(hash, msg, todoer) {
+        var dot = document.createElement("i");
+        dot.className = (todoer ? "t " : "") + "new";
+        dots.appendChild(dot);
+        while (dots.children.length > 12) dots.removeChild(dots.firstChild);
+        commitEl.innerHTML = "<b>" + hash + "</b> <span class=\"msg\"></span>";
+        commitEl.querySelector(".msg").textContent = msg;
+      }
+      function setProgress(done, total) {
+        var pct = Math.round((done / total) * 100);
+        meter.style.width = pct + "%";
+        ptext.textContent = "auth " + done + "/" + total + " done (" + pct + "%)";
+      }
+
+      function line(cls, html) {
+        var el = document.createElement("div");
+        el.className = "tl " + cls;
+        el.innerHTML = html;
+        term.appendChild(el);
+        while (term.children.length > 14) term.removeChild(term.firstChild);
+        return el;
+      }
+      function esc(s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+      }
+      function prompt(who) {
+        return '<span class="who ' + (who === "you" ? "you" : "agent") + '">' + who + '</span><span class="ps">$ </span>';
+      }
+
+      var steps = [
+        {
+          who: "agent-1",
+          cmd: "todoer claim todo/fix-the-login-crash.md",
+          out: ['claimed todo/fix-the-login-crash.md for agent-1@example.com on main'],
+          apply: function () {
+            move(cards.login, "progress");
+            setStatus(cards.login, "claimed", "agent-1");
+            hot(cards.login);
+            addCommit("f9582bb", "todoer: claim todo/fix-the-login-crash.md", true);
+          }
+        },
+        { note: "# agent-1 works in a git worktree on the branch fix-login, then commits" },
+        {
+          who: "agent-1",
+          cmd: 'todoer pr submit -t "Fix the login crash" --todo todo/fix-the-login-crash.md',
+          out: ['<span class="ok">submitted</span> fix-the-login-crash: 1 commit, 2 files'],
+          apply: function () {
+            move(cards.login, "pr");
+            setStatus(cards.login, "pending", "pending");
+            hot(cards.login);
+            addCommit("2a397f4", "todoer: submit fix-the-login-crash", true);
+          }
+        },
+        {
+          who: "you",
+          cmd: 'todoer pr comment fix-the-login-crash src/auth.rs:2 "Add a test."',
+          out: ["added the draft comment c1 on src/auth.rs:2 in fix-the-login-crash"],
+          apply: function () {
+            setStatus(cards.login, "comment", BUBBLE + both("1 draft comment", "1 draft"));
+            hot(cards.login);
+          }
+        },
+        {
+          who: "you",
+          cmd: "todoer pr request-changes fix-the-login-crash",
+          out: ['<span class="wn">changes requested</span> fix-the-login-crash: 1 comment'],
+          apply: function () {
+            setStatus(cards.login, "changes", BUBBLE + both("changes requested", "changes"));
+            hot(cards.login);
+            addCommit("a9dfe04", "todoer: request changes on fix-the-login-crash", true);
+          }
+        },
+        {
+          who: "agent-1",
+          cmd: 'todoer pr submit --update -m "Added the test"',
+          out: [
+            '<span class="ok">updated</span> fix-the-login-crash: 2 commits, 2 files',
+            "removed the review (changes-requested, 1 comment) - git history keeps it"
+          ],
+          apply: function () {
+            setStatus(cards.login, "pending", "pending");
+            hot(cards.login);
+            addCommit("8fe4f50", "todoer: update fix-the-login-crash", true);
+          }
+        },
+        {
+          who: "you",
+          cmd: "todoer pr approve fix-the-login-crash",
+          out: ['<span class="ok">approved</span> fix-the-login-crash: 0 comments'],
+          apply: function () {
+            setStatus(cards.login, "approved", CHECK + "approved");
+            hot(cards.login);
+            addCommit("c24c5a0", "todoer: approve fix-the-login-crash", true);
+          }
+        },
+        {
+          who: "you",
+          cmd: "todoer pr merge fix-the-login-crash",
+          out: [
+            '<span class="ok">merged</span> fix-the-login-crash on main: 2 commits',
+            "done: todo/fix-the-login-crash.md"
+          ],
+          apply: function () {
+            addCommit("b6e00dc", "Fix the login crash", false);
+            later(function () {
+              addCommit("0a26764", "Add a test", false);
+            }, 180);
+            later(function () {
+              addCommit("03667af", "todoer: merge fix-the-login-crash", true);
+            }, 360);
+            move(cards.login, "done");
+            cards.login.classList.add("is-done");
+            setStatus(cards.login, "done", "done");
+            setProgress(1, 2);
+            later(function () {
+              flip(function () {
+                cards.rate.classList.remove("is-blocked");
+                setStatus(cards.rate, "ready", "ready");
+                body("todo").insertBefore(cards.rate, body("todo").firstChild);
+              });
+              hot(cards.rate);
+            }, 900);
+          }
+        }
+      ];
+
+      function reset() {
+        var todo = body("todo");
+        todo.appendChild(cards.login);
+        todo.appendChild(cards.docs);
+        todo.appendChild(cards.rate);
+        cards.login.classList.remove("is-done", "hot");
+        cards.rate.classList.add("is-blocked");
+        setStatus(cards.login, "ready", "ready");
+        setStatus(cards.rate, "blocked", LOCK + "blocked");
+        counts();
+        setProgress(0, 2);
+        dots.innerHTML = "<i></i><i></i>";
+        commitEl.innerHTML = '<b>83f9b44</b> <span class="msg">Plan the auth work</span>';
+        term.innerHTML = "";
+        line("out", '<span class="who you">you</span><span class="ps">$ </span>todoer ls');
+        line("out", "ready        todo/fix-the-login-crash.md  Fix the login crash");
+        line("out", "ready        todo/write-the-api-docs.md   Write the API docs");
+        line("out", "blocked      todo/add-rate-limiting.md    Add rate limiting    waits for todo/fix-the-login-crash.md");
+      }
+
+      function runStep(i) {
+        if (i >= steps.length) {
+          later(function () {
+            board.style.transition = "opacity .5s";
+            board.style.opacity = "0";
+            later(function () {
+              reset();
+              board.style.opacity = "1";
+              later(function () {
+                runStep(0);
+              }, 1400);
+            }, 550);
+          }, 4200);
+          return;
+        }
+        var s = steps[i];
+        if (s.note) {
+          line("note", esc(s.note));
+          later(function () {
+            runStep(i + 1);
+          }, 1300);
+          return;
+        }
+        var el = line("cmd", prompt(s.who) + '<span class="typed caret"></span>');
+        var typed = el.querySelector(".typed");
+        var n = 0;
+        (function type() {
+          if (n <= s.cmd.length) {
+            typed.textContent = s.cmd.slice(0, n);
+            n += 1 + (Math.random() < 0.3 ? 1 : 0);
+            later(type, 26 + Math.random() * 30);
+          } else {
+            typed.textContent = s.cmd;
+            later(function () {
+              typed.classList.remove("caret");
+              s.out.forEach(function (o, k) {
+                later(function () {
+                  line("out", o);
+                }, k * 160);
+              });
+              s.apply();
+              later(function () {
+                runStep(i + 1);
+              }, 1900);
+            }, 380);
+          }
+        })();
+      }
+
+      function finalState() {
+        reset();
+        term.innerHTML = "";
+        steps.forEach(function (s) {
+          if (s.note) {
+            line("note", esc(s.note));
+            return;
+          }
+          line("cmd", prompt(s.who) + esc(s.cmd));
+          s.out.forEach(function (o) {
+            line("out", o);
+          });
+          s.apply();
+        });
+        timers.forEach(function (t) {
+          clearTimeout(t);
+        });
+        timers = [];
+        addCommit("0a26764", "Add a test", false);
+        addCommit("03667af", "todoer: merge fix-the-login-crash", true);
+        cards.login.classList.remove("hot");
+        cards.rate.classList.remove("is-blocked");
+        setStatus(cards.rate, "ready", "ready");
+        body("todo").insertBefore(cards.rate, body("todo").firstChild);
+        counts();
+      }
+
+      reset();
+      if (reduce) {
+        finalState();
+      } else if ("IntersectionObserver" in window) {
+        var started = false;
+        var io = new IntersectionObserver(function (entries) {
+          if (!started && entries[0].isIntersecting) {
+            started = true;
+            io.disconnect();
+            later(function () {
+              runStep(0);
+            }, 700);
+          }
+        });
+        io.observe(board);
+      } else {
+        runStep(0);
+      }
+
+      /* ---------- file explorer ---------- */
+      var fileBtns = document.querySelectorAll(".tree button");
+      var views = document.querySelectorAll(".fv");
+      Array.prototype.forEach.call(fileBtns, function (btn) {
+        btn.addEventListener("click", function () {
+          var f = btn.getAttribute("data-file");
+          Array.prototype.forEach.call(fileBtns, function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+          Array.prototype.forEach.call(views, function (v) {
+            v.hidden = v.getAttribute("data-file") !== f;
+          });
+        });
+      });
+
+      /* ---------- comment targets ---------- */
+      var diff = document.getElementById("diff");
+      var tg = document.getElementById("tg");
+      var tBtns = document.querySelectorAll("#targets button");
+      function select(t) {
+        Array.prototype.forEach.call(diff.querySelectorAll(".sel"), function (el) {
+          el.classList.remove("sel");
+        });
+        diff.classList.remove("sel-pr");
+        tg.textContent = t || "";
+        tg.style.display = t ? "" : "none";
+        var auth = diff.querySelector('[data-f="auth"]');
+        if (!t) {
+          diff.classList.add("sel-pr");
+        } else if (t === "src/") {
+          Array.prototype.forEach.call(diff.querySelectorAll(".dfile"), function (f) {
+            f.classList.add("sel");
+          });
+        } else if (t === "src/auth.rs") {
+          auth.classList.add("sel");
+        } else if (t === "src/auth.rs:old:2") {
+          auth.querySelector('[data-old="2"]').classList.add("sel");
+        } else {
+          var m = t.match(/:(\d+)(?:-(\d+))?$/);
+          var a = +m[1];
+          var b = m[2] ? +m[2] : a;
+          Array.prototype.forEach.call(auth.querySelectorAll("[data-new]"), function (r) {
+            var n = +r.getAttribute("data-new");
+            if (n >= a && n <= b) r.classList.add("sel");
+          });
+        }
+      }
+      Array.prototype.forEach.call(tBtns, function (btn) {
+        btn.addEventListener("click", function () {
+          Array.prototype.forEach.call(tBtns, function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+          select(btn.getAttribute("data-t"));
+        });
+      });
+      select("src/auth.rs:2");
+
+      /* ---------- copy ---------- */
+      var btn = document.getElementById("copy-btn");
+      var cmd = document.getElementById("install-cmd");
+      btn.addEventListener("click", function () {
+        var text = cmd.textContent;
+        function done() {
+          btn.textContent = "Copied";
+          setTimeout(function () {
+            btn.textContent = "Copy";
+          }, 1600);
+        }
+        function fallback() {
+          var range = document.createRange();
+          range.selectNodeContents(cmd);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, fallback);
+        } else fallback();
+      });
+    })();
+    </script>
+  </body>
+</html>

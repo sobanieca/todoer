@@ -125,11 +125,18 @@ are.
   `main` prints them and exits with `1`.
 - `cargo fmt` sets the format.
 
+## Landing page
+
+The landing page is `docs/index.html`. When you add a feature or change a behavior, update the
+landing page in the same change, so that it always shows the current feature set.
+
 ## Publishing
 
 Every push to `main` builds binaries for Linux (musl, static) and macOS (x64, arm64) and publishes
 them as the GitHub release `v<version>` (the version in `Cargo.toml`). `install.sh` and `todoer
-update` download these assets, so their names (`todoer-linux-x64`, ...) must not change.
+update` download these assets, so their names (`todoer-linux-x64`, ...) must not change. Every push
+to `main` also publishes `docs/`, `install.sh` and `src/help.txt` to GitHub Pages at
+https://sobanieca.github.io/todoer/.
 
 ## Git
 
