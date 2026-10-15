@@ -7,6 +7,12 @@ main checkout. AI agents work in git worktrees and send their commits as patch f
 reviews the patches in a local web page and merges them on the main branch. todoer is one binary,
 built with `deno compile` from plain JavaScript. The page is an imp project in `ui/`.
 
+## Migration from Deno to Rust is planned
+
+todoer moves to Rust, with the same layout as `jsonr` and `sqlr`. The new version has no page. See
+`todo/migrate-to-rust.md` and the other files in `todo/`. Do not add new features to the Deno code
+or to `ui/`. Fix only bugs that block work.
+
 ## todoer is unreleased - do not preserve backward compatibility
 
 Until the version in `deno.json` reaches `1.0.0`, treat the project as never released. Rename or

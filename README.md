@@ -13,6 +13,9 @@ in git worktrees. You review their pull requests on the main branch, in a local 
 
 todoer is not released yet. Until version `1.0.0`, any part of it can change.
 
+> **Planned:** todoer moves from Deno to Rust, and becomes a command line tool with no web page.
+> See [`todo/`](todo/) for the plan.
+
 ## Start
 
 ```sh
