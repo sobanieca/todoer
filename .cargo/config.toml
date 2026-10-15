@@ -1,0 +1,5 @@
+[alias]
+xtask = "run --quiet --package xtask --"
+todoer = "run --quiet --package todoer --"
+verify = "xtask verify"
+update-snapshots = "xtask update-snapshots"

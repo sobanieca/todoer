@@ -1,0 +1,206 @@
+$ cd todo/rust && todoer add -t 'Port the CLI parser' -l rust-port 'Parse the arguments.'
+todo/rust/port-the-cli-parser.md
+
+$ todoer add -t 'Port: the config' -p todo/rust -l rust-port -l config -d todo/rust/port-the-cli-parser.md
+todo/rust/port-the-config.md
+
+$ echo 'From stdin.' | todoer add -t 'Release v1' -p todo -d todo/rust/port-the-config.md
+todo/release-v1.md
+
+$ todoer add -t 'Port the CLI parser' -p todo/rust
+todo/rust/port-the-cli-parser-2.md
+
+$ todoer add 'no title'
+exit code: 1
+--- stderr
+error: a todo needs a title - use todoer add -t "<title>" [text]
+
+$ todoer add -t x -l Bad
+exit code: 1
+--- stderr
+error: "Bad" is not a label - use lowercase letters, digits and hyphens
+
+$ todoer add -t x -d todo/missing.md
+exit code: 1
+--- stderr
+error: there is no todo todo/missing.md - run todoer ls
+
+--- todo/rust/port-the-config.md
+---
+title: "Port: the config"
+status: todo
+labels: [rust-port, config]
+dependsOn: [todo/rust/port-the-cli-parser.md]
+---
+
+--- todo/release-v1.md
+---
+title: Release v1
+status: todo
+dependsOn: [todo/rust/port-the-config.md]
+---
+
+From stdin.
+
+$ todoer ls
+ready        todo/rust/port-the-cli-parser-2.md  Port the CLI parser
+ready        todo/rust/port-the-cli-parser.md    Port the CLI parser
+blocked      todo/release-v1.md                  Release v1           waits for todo/rust/port-the-config.md
+blocked      todo/rust/port-the-config.md        Port: the config     waits for todo/rust/port-the-cli-parser.md
+
+$ todoer ls --ready
+ready        todo/rust/port-the-cli-parser-2.md  Port the CLI parser
+ready        todo/rust/port-the-cli-parser.md    Port the CLI parser
+
+$ todoer ls --label config --json
+[
+  {
+    "path": "todo/rust/port-the-config.md",
+    "title": "Port: the config",
+    "status": "todo",
+    "state": "blocked",
+    "assignee": null,
+    "labels": [
+      "rust-port",
+      "config"
+    ],
+    "dependsOn": [
+      "todo/rust/port-the-cli-parser.md"
+    ],
+    "waitsFor": [
+      "todo/rust/port-the-cli-parser.md"
+    ]
+  }
+]
+
+$ cd todo && todoer done rust/port-the-cli-parser-2.md
+done: todo/rust/port-the-cli-parser-2.md
+
+$ todoer ls --all
+ready        todo/rust/port-the-cli-parser.md    Port the CLI parser
+blocked      todo/release-v1.md                  Release v1           waits for todo/rust/port-the-config.md
+blocked      todo/rust/port-the-config.md        Port: the config     waits for todo/rust/port-the-cli-parser.md
+done         todo/rust/port-the-cli-parser-2.md  Port the CLI parser
+
+$ todoer dep show todo/rust/port-the-config.md
+todo/rust/port-the-config.md  Port: the config  (blocked)
+
+waits for:
+  todo/rust/port-the-cli-parser.md  Port the CLI parser  (ready)
+
+needed by:
+  todo/release-v1.md  Release v1  (blocked)
+
+$ todoer dep add todo/rust/port-the-cli-parser.md todo/release-v1.md
+exit code: 1
+--- stderr
+error: todo/rust/port-the-cli-parser.md cannot depend on todo/release-v1.md - todo/release-v1.md already depends on todo/rust/port-the-cli-parser.md, so this makes a cycle
+
+$ todoer dep add todo/release-v1.md todo/release-v1.md
+exit code: 1
+--- stderr
+error: todo/release-v1.md cannot depend on itself
+
+$ todoer dep add todo/release-v1.md todo/rust/port-the-cli-parser.md
+todo/release-v1.md depends on todo/rust/port-the-cli-parser.md
+
+$ todoer dep show todo/rust/port-the-cli-parser.md
+todo/rust/port-the-cli-parser.md  Port the CLI parser  (ready)
+
+waits for:
+  nothing
+
+needed by:
+  todo/release-v1.md  Release v1  (blocked)
+  todo/rust/port-the-config.md  Port: the config  (blocked)
+    todo/release-v1.md  see above
+
+$ todoer dep rm todo/release-v1.md todo/rust/port-the-cli-parser.md
+todo/release-v1.md no longer depends on todo/rust/port-the-cli-parser.md
+
+$ todoer dep rm todo/release-v1.md todo/rust/port-the-cli-parser.md
+exit code: 1
+--- stderr
+error: todo/release-v1.md does not depend on todo/rust/port-the-cli-parser.md
+
+$ todoer label add todo/release-v1.md release
+todo/release-v1.md: added the label release
+
+$ todoer label add todo/release-v1.md rust-port
+todo/release-v1.md: added the label rust-port
+
+$ todoer label rm todo/release-v1.md release
+todo/release-v1.md: removed the label release
+
+$ todoer label add todo/release-v1.md Release
+exit code: 1
+--- stderr
+error: "Release" is not a label - use lowercase letters, digits and hyphens
+
+$ todoer labels
+config     1 todo
+rust-port  3 todos
+
+$ todoer progress
+config     0/1 done (0%)  [-]
+rust-port  0/3 done (0%)  [---]
+
+$ todoer progress rust-port
+rust-port  0/3 done (0%)  [---]
+
+ready (1)
+  todo/rust/port-the-cli-parser.md
+
+blocked (2)
+  todo/rust/port-the-config.md      waits for todo/rust/port-the-cli-parser.md
+  todo/release-v1.md                waits for todo/rust/port-the-config.md
+
+$ todoer progress missing
+exit code: 1
+--- stderr
+error: no todo has the label missing - run todoer labels
+
+$ todoer mv todo/rust/port-the-config.md todo/config/
+moved todo/rust/port-the-config.md -> todo/config/port-the-config.md
+updated dependsOn in todo/release-v1.md
+
+--- todo/release-v1.md
+---
+title: Release v1
+status: todo
+dependsOn: [todo/config/port-the-config.md]
+labels: [rust-port]
+---
+
+From stdin.
+
+$ todoer mv todo/release-v1.md todo/release.txt
+exit code: 1
+--- stderr
+error: todo/release.txt must end with .md
+
+$ todoer check
+4 todos, no problems
+
+$ todoer check
+exit code: 1
+todo/bad.md: unknown status "later" - use todo, in-progress, done or dropped
+todo/bad.md: bad label "Rust" - use lowercase letters, digits and hyphens
+todo/bad.md: bad assignee "bob" - use a git email
+todo/bad.md: dependsOn names todo/gone.md, which is not a todo
+todo/bad.md: dependsOn names the todo itself
+--- stderr
+error: 5 problems in 5 todos
+
+$ todoer ls
+ready        todo/bad.md                       Bad                  bob
+ready        todo/rust/port-the-cli-parser.md  Port the CLI parser
+blocked      todo/config/port-the-config.md    Port: the config     waits for todo/rust/port-the-cli-parser.md
+blocked      todo/release-v1.md                Release v1           waits for todo/config/port-the-config.md
+--- stderr
+warning: todo/bad.md: unknown status "later" - use todo, in-progress, done or dropped
+warning: todo/bad.md: bad label "Rust" - use lowercase letters, digits and hyphens
+warning: todo/bad.md: bad assignee "bob" - use a git email
+warning: todo/bad.md: dependsOn names todo/gone.md, which is not a todo
+warning: todo/bad.md: dependsOn names the todo itself
+

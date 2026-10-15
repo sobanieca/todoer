@@ -5,26 +5,27 @@ field. When a decision changes, replace the file. When it is dropped, delete the
 
 ## Data
 
-| Decision                                                                | Summary                                                      |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [plain-files-in-the-main-checkout](plain-files-in-the-main-checkout.md) | todos, pull requests and reviews are files in `.todoer/`     |
-| [patch-based-pull-requests](patch-based-pull-requests.md)               | a pull request is a patch series plus a combined diff        |
-| [review-comment-targets](review-comment-targets.md)                     | a comment names a line, a file or a folder                   |
-| [groups-are-names-on-todos](groups-are-names-on-todos.md)               | a group is a name in the `groups` field of its todos         |
-| [dependencies-between-items](dependencies-between-items.md)             | todos and pull requests depend on each other, with no cycle  |
-| [image-size-limit](image-size-limit.md)                                 | todoer refuses an image above `maxImageKb`, it never resizes |
+| Decision                                                                    | Summary                                                       |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [a-todo-is-a-markdown-file](a-todo-is-a-markdown-file.md)                   | a todo is a markdown file with a status field; its path is its id |
+| [patch-based-pull-requests](patch-based-pull-requests.md)                   | a pull request is a folder of patches on the main branch      |
+| [review-comment-targets](review-comment-targets.md)                         | a comment names lines, a file, a folder or the pull request   |
+| [the-review-is-for-the-latest-patch](the-review-is-for-the-latest-patch.md) | a new submit replaces the patch and removes the review        |
+| [dependencies-between-todos](dependencies-between-todos.md)                 | todos depend on todos, with no cycle                          |
+| [labels-replace-groups](labels-replace-groups.md)                           | a label is a name in the `labels` list of a todo              |
+| [code-owners](code-owners.md)                                               | teams and code owners filter the files of a review            |
 
 ## Workflow
 
-| Decision                                                              | Summary                                                      |
-| --------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [one-worktree-per-request](one-worktree-per-request.md)               | `todoer start` makes one branch and one worktree per request |
-| [agent-skill-prints-the-workflow](agent-skill-prints-the-workflow.md) | `todoer skill` is the one source of the agent workflow       |
+| Decision                                                                        | Summary                                                  |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [todoer-commits-only-on-the-main-branch](todoer-commits-only-on-the-main-branch.md) | pull requests and reviews are commits on the main branch; todo commands do not commit |
+| [agents-make-their-own-worktrees](agents-make-their-own-worktrees.md)           | todoer does not make work worktrees                      |
+| [agent-skill-prints-the-workflow](agent-skill-prints-the-workflow.md)           | `todoer skill` is the one source of the agent workflow   |
+| [review-with-an-agent](review-with-an-agent.md)                                 | a person reviews the patch by talking with an agent      |
 
 ## Runtime
 
-| Decision                                                      | Summary                                                    |
-| ------------------------------------------------------------- | ---------------------------------------------------------- |
-| [dependency-free-deno-binary](dependency-free-deno-binary.md) | plain JavaScript on Deno, no imports from outside the repo |
-| [lazy-dependency-tree](lazy-dependency-tree.md)               | the page opens a dependency tree one level at a time       |
-| [local-page](local-page.md)                                   | an imp page on localhost, with host and origin checks      |
+| Decision                                                                    | Summary                                           |
+| --------------------------------------------------------------------------- | ------------------------------------------------- |
+| [rust-binary-with-few-dependencies](rust-binary-with-few-dependencies.md)   | one Rust binary; the only crate is `ureq`         |

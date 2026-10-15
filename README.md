@@ -1,40 +1,49 @@
 # todoer
 
-todoer keeps the todos and the pull requests of a git project as plain files. AI agents do the work
-in git worktrees. You review their pull requests on the main branch, in a local web page.
+todoer keeps the todos and the pull requests of a git project as plain files. AI agents and people
+claim todos, work in git worktrees, and review the pull requests on the command line.
 
-- One binary for the command line and the page. No database, no server, no account.
-- Todos are markdown files in `.todoer/todos/`. Images are checked against a size limit.
-- An agent works in its own worktree, and sends its commits as a patch file.
-- You review the patch on the main branch. You comment on a line, a file or a whole folder.
-- A merge applies the patch on the main branch with `git am`.
-- Groups collect related todos and show their progress.
-- Todos and pull requests can depend on each other, to any depth, with no cycle.
+- One binary. No database, no server, no account.
+- A todo is a markdown file with a `status` field in its front matter. Its path is its id.
+- A claim is a commit on the main branch, so every agent sees at once who works on a todo.
+- A pull request is a patch file in `.todoer/prs/` on the main branch. You review it in the
+  terminal: comment on a line, a range of lines, a file, a folder or the whole pull request.
+- A merge applies the patch on the main branch with `git am`, and sets the todos to `done`.
+- Labels show the progress of related todos. Todos depend on each other, with no cycle.
+- Code owners and teams filter the files of a review.
 
 todoer is not released yet. Until version `1.0.0`, any part of it can change.
 
-> **Planned:** todoer moves from Deno to Rust, and becomes a command line tool with no web page.
-> See [`todo/`](todo/) for the plan.
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sobanieca/todoer/main/install.sh | bash
+todoer update              # installs the latest release later
+```
+
+Or build it: `cargo build --release`, then copy `target/release/todoer` to a folder on your `PATH`.
 
 ## Start
 
 ```sh
-deno task compile          # builds ./todoer (needs deno and imp)
 cd ~/code/my-project
-todoer init                # writes todoer.json and .todoer/
 todoer skill --init        # writes the todoer skill for Claude Code, Codex and Cursor
-todoer ui --open           # opens the page on http://localhost:4507
+todoer add -t "Fix the login crash" -p todo -l auth "Steps to reproduce: ..."
+git add todo && git commit -m "Plan the auth work"
 ```
 
-1. Add todos in the page, or with `todoer add "<title>"`. Paste or drop images.
-2. Select one or more todos and click **Ask agent**. Give the prompt to your agent.
-3. The agent runs `todoer start <ids>`, works in the new worktree, commits, and runs
-   `todoer pr submit`. The patch goes to `.todoer/prs/` of the main checkout.
-4. Open the pull request in the page. Comment, then click **Request changes** or **Approve and
-   merge**.
+1. Ask an agent to work on `todo/fix-the-login-crash.md`. The agent runs `todoer claim`, makes a
+   worktree, commits, and runs `todoer pr submit`.
+2. Review with an agent: ask it to explain the patch and to add your comments on lines of the
+   change. The agent runs `todoer pr details <slug>` and `todoer pr comment <slug> <target>`.
+   Or review in the terminal: `todoer pr review <slug>`.
+3. Send the review: `todoer pr request-changes <slug>` or `todoer pr approve <slug>`.
+4. The agent does what the comments ask and runs `todoer pr submit --update`. This replaces the
+   patch and removes the review. Review the new patch from the start.
+5. Merge: `todoer pr merge <slug>`. It stops while the review has comments.
 
-The commands and the settings are in [`docs/cli.md`](docs/cli.md). The files that todoer writes are
-in [`docs/data.md`](docs/data.md).
+The commands are in [`docs/cli.md`](docs/cli.md). The files that todoer writes are in
+[`docs/data.md`](docs/data.md).
 
 ## Settings
 
@@ -42,26 +51,20 @@ in [`docs/data.md`](docs/data.md).
 
 ```json
 {
-  "maxImageKb": 150,
-  "mainBranch": "main",
-  "worktreesDir": ".todoer/worktrees",
-  "agentCommand": ["claude", "{prompt}"],
-  "port": 4507
+  "mainBranch": "main"
 }
 ```
 
 ## Work on todoer
 
-| Task                | What it does                                                         |
-| ------------------- | -------------------------------------------------------------------- |
-| `deno task start`   | builds the page and serves a demo project on <http://localhost:4507> |
-| `deno task ui`      | builds the page and runs `todoer ui` in this repository              |
-| `deno task test`    | runs the tests                                                       |
-| `deno task check`   | runs `deno fmt`, `deno lint`, the tests, then imp fmt, lint and test |
-| `deno task compile` | builds the `todoer` binary with the page inside                      |
+| Task                     | What it does                                       |
+| ------------------------ | -------------------------------------------------- |
+| `cargo todoer [args]`    | runs todoer from source                            |
+| `cargo verify`           | runs `cargo fmt --check`, clippy and all the tests |
+| `cargo update-snapshots` | accepts new CLI output in `tests/snapshots`        |
 
-The page is an imp project in `ui/`. The decisions are in [`adr/`](adr/). The rules for a change are
-in [`CLAUDE.md`](CLAUDE.md).
+The decisions are in [`adr/`](adr/). The planned work is in [`todo/`](todo/). The rules for a
+change are in [`AGENTS.md`](AGENTS.md).
 
 ## License
 

@@ -1,0 +1,69 @@
+$ todoer add -t First -p todo
+todo/first.md
+
+$ todoer add -t Second -p todo -d todo/first.md
+todo/second.md
+
+$ todoer claim todo/second.md
+exit code: 1
+--- stderr
+error: todo/second.md waits for todo/first.md - claim a todo that is ready, or use --force
+
+$ todoer claim todo/first.md
+claimed todo/first.md for me@example.com on main
+
+$ todoer claim todo/first.md
+todo/first.md is already claimed by you
+
+$ git log --format=%s -1 && git status --short
+todoer: claim todo/first.md
+
+--- todo/first.md
+---
+title: First
+status: in-progress
+assignee: me@example.com
+---
+
+$ git config user.email other@example.com && todoer claim todo/first.md
+exit code: 1
+--- stderr
+error: todo/first.md is claimed by me@example.com - pick another todo, or ask me@example.com to run todoer unclaim
+
+$ todoer claim todo/second.md --force
+claimed todo/second.md for other@example.com on main
+
+$ git config user.email me@example.com && todoer ls --mine
+in-progress  todo/first.md  First  me@example.com
+
+$ todoer unclaim todo/first.md
+unclaimed todo/first.md (was me@example.com)
+
+$ todoer unclaim todo/first.md
+exit code: 1
+--- stderr
+error: todo/first.md is not claimed - its status is todo
+
+$ echo change >> todo/first.md && todoer claim todo/first.md
+exit code: 1
+--- stderr
+error: todo/first.md has uncommitted changes in the main checkout <tmp>/repo - commit or discard them first
+
+$ todoer add -t Third -p todo && todoer claim todo/third.md && git status --short
+todo/third.md
+claimed todo/third.md for me@example.com on main
+
+$ todoer claim ../repo/todo/first.md [cwd: feature]
+exit code: 1
+--- stderr
+error: ../repo/todo/first.md is outside the repository <tmp>/feature
+
+$ todoer claim todo/first.md && git -C ../repo log --format=%s -1 [cwd: feature]
+claimed todo/first.md for me@example.com on main
+todoer: claim todo/first.md
+
+$ todoer unclaim todo/first.md
+exit code: 1
+--- stderr
+error: the main checkout <tmp>/repo is on other - check out main there first. todoer commits only on main
+

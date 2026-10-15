@@ -1,0 +1,19 @@
+[package]
+name = "todoer"
+version = "0.2.0"
+edition = "2024"
+description = "Todos and pull requests of a git project as plain files, for people and AI agents"
+license = "MIT"
+repository = "https://github.com/sobanieca/todoer"
+publish = false
+
+[dependencies]
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+
+[workspace]
+members = ["xtask"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

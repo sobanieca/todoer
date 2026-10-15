@@ -1,6 +1,6 @@
 ---
 title: Review a pull request on the command line
-status: todo
+status: done
 labels: [cli-reshape]
 dependsOn: [todo/patch-pull-requests.md]
 ---
@@ -12,7 +12,7 @@ The review commands read `v<N>.diff` only. They need no worktree, so agents can 
 `todoer pr summary <pr>`
 
 ```
-port-cli  Port the CLI parser to Rust   open  v2  by agent-1
+port-cli  Port the CLI parser to Rust   open  v2  by agent-1@example.com
 base 3f2a91c   todos: todo/rust/port-cli.md   v1: changes-requested
 
  M  src/cli/args.rs            +120  -4   2 comments  @backend
@@ -31,7 +31,7 @@ src/cli/args.rs  (M, +120 -4)
    40   40 |   let items = load();
    41      | - let b = 2;
         41 | + let b = 3;
-           |   [c1] sobanieca: use the constant
+           |   [c1] sobanieca@gmail.com: use the constant
 ```
 
 - With no file, it prints all the files.
@@ -54,13 +54,15 @@ src/cli/args.rs  (M, +120 -4)
 
 - A line must be in the diff, also a context line. The comment keeps the text of its line.
 - With no text, todoer reads the text from stdin.
-- `todoer pr reply <pr> <comment-id> "<text>"` answers a comment.
+- `todoer pr reply <pr> <comment-id> "<text>"` answers a comment. A reply is not a draft: todoer
+  commits it at once, on the main branch.
 
 ## Verdict
 
 - A new comment is a draft: a change in `review.v<N>.md` that is not committed.
 - `todoer pr approve <pr>` and `todoer pr request-changes <pr> [-m <text>]` set the verdict and
-  commit the review file. This gives one commit for each review.
+  commit the review file on the main branch. This gives one commit for each review. The main
+  checkout must be on the main branch.
 - `todoer pr review <pr>` with no interactive mode prints the summary and the details of all files.
 
 ## ADRs

@@ -1,0 +1,56 @@
+todoer - todos and pull requests of a git project as plain files, for people and AI agents
+
+A todo is a markdown file with a status field in its front matter. Its path is its id.
+A pull request is a folder .todoer/prs/<slug>/ on the main branch, with a patch and a review.
+todoer commits only on the main branch, in the main checkout.
+
+Todos:
+  ls [--all] [--mine] [--label l] [--ready] [--json]
+                            list the active todos; --all adds done and dropped todos
+  add -t <title> [-p dir] [-l label]... [-d path]... [text]
+                            add a todo and print its path; the text can come on stdin
+  done <path>...            set status: done
+  mv <old> <new>            move a todo and change each dependsOn to it
+  check                     report bad todos; exit with 1 when there is a problem
+  claim <path> [--force]    set status: in-progress and assignee: <me>, commit on the main branch
+  unclaim <path>            set status: todo and remove the assignee, commit on the main branch
+
+Dependencies and labels:
+  dep add <path> <path>...  the first todo depends on each other todo
+  dep rm <path> <path>...   remove those dependencies
+  dep show <path>           print what the todo waits for, and what needs it
+  label add <path> <label>  add a label to a todo
+  label rm <path> <label>   remove a label from a todo
+  labels [--json]           list the labels with the number of todos
+  progress [label] [--json] print the progress of a label, or one line for each label
+
+Pull requests:
+  pr submit [-t title] [-m text] [--todo path]... [--update]
+                            send the commits of the branch as the pull request; --update
+                            replaces the patch of a reviewed pull request and removes its review
+  pr ls [--mine] [--json]   list the open pull requests
+  pr merge <pr>             apply the patch on the main branch and set its todos to done;
+                            stops when the review has a comment
+  pr close <pr>             close a pull request without a merge
+  pr summary <pr>           print the files, the owners and the comment counts
+  pr details <pr> [file...] [--context N] [--lines 40-80]
+                            print the diff with line numbers and comments
+  pr comment <pr> [target] [text]
+                            add a draft comment; with no target, on the whole pull request
+  pr approve <pr> [-m text] set the verdict and commit the review
+  pr request-changes <pr> [-m text]
+                            set the verdict and commit the review
+  pr review <pr>            print the summary and the details
+
+  A target is path:42, path:40-45, path:old:12 (a removed line), path (a file) or folder/.
+  A target can name a file that the pull request does not change.
+  --owner <team|email>, --mine and --unowned filter the files of summary, details and review.
+
+Other:
+  skill [--init]            print the agent workflow, or write it as a skill
+  update                    install the latest release
+  help, --help              print this help
+  version, --version        print the version
+
+Settings - todoer.json at the project root, every key is optional:
+  mainBranch    the branch for the commits of todoer (default: origin/HEAD, main or master)

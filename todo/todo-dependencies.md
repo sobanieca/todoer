@@ -1,8 +1,8 @@
 ---
 title: Dependencies between todos
-status: todo
+status: done
 labels: [cli-reshape]
-dependsOn: [todo/todos-as-files.md]
+dependsOn: [todo/migrate-to-rust.md]
 ---
 
 `dependsOn` in a todo lists the paths of other todos. A todo waits until each todo in its list is

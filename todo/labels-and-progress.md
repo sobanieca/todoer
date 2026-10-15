@@ -1,8 +1,8 @@
 ---
 title: Labels and the progress of a label
-status: todo
+status: done
 labels: [cli-reshape]
-dependsOn: [todo/todos-as-files.md, todo/todo-dependencies.md]
+dependsOn: [todo/todo-dependencies.md]
 ---
 
 A label is a name in the `labels` list of a todo. A todo can have many labels, and a label can be
@@ -26,8 +26,8 @@ on many todos. A label exists while one todo has it.
 migration-to-rust-followup   7/12 done (58%)  [#######-----]
 
 in progress (2)
-  todo/rust/port-cli.md        @sobanieca  pr: port-cli v2, changes requested
-  todo/rust/port-config.md     @agent-1
+  todo/rust/port-cli.md        sobanieca@gmail.com  pr: port-cli v2, changes requested
+  todo/rust/port-config.md     agent-1@example.com
 ready (1)
   todo/rust/remove-node-build.md
 blocked (2)

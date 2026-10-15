@@ -1,6 +1,6 @@
 ---
 title: Teams, code owners and the owner filter
-status: todo
+status: done
 labels: [cli-reshape]
 dependsOn: [todo/pr-review-cli.md]
 ---
@@ -19,7 +19,7 @@ Show the files of a pull request that a person or a team owns.
 
 - `--owner <team|person>`, `--mine` and `--unowned`.
 - They apply to `pr summary`, to `pr details` with no file, and to `pr review`.
-- `todoer prs --mine` lists the pull requests that change files that I own.
+- `todoer pr ls --mine` lists the pull requests that change files that I own.
 - For a renamed file, the owners of the old and the new path count.
 
 Write the gitignore pattern matcher in the crate, with many tests.

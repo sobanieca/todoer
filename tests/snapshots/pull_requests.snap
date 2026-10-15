@@ -1,0 +1,419 @@
+$ todoer pr ls
+no open pull requests
+
+$ todoer pr submit
+exit code: 1
+--- stderr
+error: this checkout is on main - commit your work on a branch of its own, in a worktree
+
+$ todoer pr submit [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: the worktree has changes that are not committed - commit them first:
+?? dirty.txt
+
+$ todoer pr submit -m 'b is three now.' --todo todo/fix-the-sum.md [cwd: fix-sum]
+submitted use-three-for-b: 1 commit, 3 files
+.todoer/prs/use-three-for-b
+todos: todo/fix-the-sum.md
+
+$ git log --format=%s -2 && git status --short && ls -a .todoer .todoer/prs/use-three-for-b
+todoer: submit use-three-for-b
+todoer: claim todo/fix-the-sum.md
+.todoer:
+.
+..
+prs
+
+.todoer/prs/use-three-for-b:
+.
+..
+pr.diff
+pr.md
+pr.patch
+
+--- .todoer/prs/use-three-for-b/pr.md
+---
+title: Use three for b
+author: me@example.com
+branch: fix-sum
+base: 90947ba61c57a86b2de5d06311765e87a42f07a2
+todos: [todo/fix-the-sum.md]
+---
+
+b is three now.
+
+$ todoer pr ls
+use-three-for-b  pending            me@example.com  Use three for b
+
+$ todoer pr ls --json
+[
+  {
+    "slug": "use-three-for-b",
+    "path": ".todoer/prs/use-three-for-b",
+    "title": "Use three for b",
+    "author": "me@example.com",
+    "branch": "fix-sum",
+    "verdict": "pending",
+    "todos": [
+      "todo/fix-the-sum.md"
+    ]
+  }
+]
+
+$ todoer pr summary use-three-for-b
+use-three-for-b  Use three for b   open  by me@example.com
+base 90947ba   todos: todo/fix-the-sum.md
+
+  b is three now.
+
+ M  docs/guide.md             +1
+ M  src/app.rs                +1 -1
+ R  src/old.rs -> src/lib.rs
+3 files, +2 -1    1 commit
+
+$ todoer pr details .todoer/prs/use-three-for-b/
+docs/guide.md  (M, +1 -0)
+           | @@ -9,3 +9,4 @@ line 6
+    9    9 |   line 7
+   10   10 |   line 8
+   11   11 |   line 9
+        12 | + line 10
+
+src/app.rs  (M, +1 -1)
+           | @@ -1,5 +1,5 @@
+    1    1 |   fn main() {
+    2    2 |       let a = 1;
+    3      | -     let b = 2;
+         3 | +     let b = 3;
+    4    4 |       println!("{}", a + b);
+    5    5 |   }
+
+src/old.rs -> src/lib.rs  (R)
+
+$ todoer pr details use-three-for-b docs/guide.md --context 2
+docs/guide.md  (M, +1 -0)
+           | ...
+    7    7 |   line 5
+    8    8 |   line 6
+    9    9 |   line 7
+   10   10 |   line 8
+   11   11 |   line 9
+        12 | + line 10
+
+$ todoer pr details use-three-for-b src/app.rs --context 1 --lines 3-3
+src/app.rs  (M, +1 -1)
+    3      | -     let b = 2;
+         3 | +     let b = 3;
+
+$ todoer pr details use-three-for-b nope.rs
+exit code: 1
+--- stderr
+error: the pull request does not change nope.rs, and no comment names it
+
+$ todoer pr comment use-three-for-b src/app.rs:3 'Use a constant.'
+added the draft comment c1 on src/app.rs:3 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b src/app.rs:2-4 'Format this.'
+added the draft comment c2 on src/app.rs:2-4 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b src/app.rs:old:3 'Why two?'
+added the draft comment c3 on src/app.rs:old:3 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b src/lib.rs 'Name it math.rs.'
+added the draft comment c4 on src/lib.rs in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b src/ 'Move under lib/.'
+added the draft comment c5 on src/ in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b 'Add a test.'
+added the draft comment c6 on the pull request in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ echo 'From stdin.' | todoer pr comment use-three-for-b docs/guide.md:12
+added the draft comment c7 on docs/guide.md:12 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b docs/guide.md:3 'Outside the changes.'
+added the draft comment c8 on docs/guide.md:3 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b todo/fix-the-sum.md:2 'Not in the pull request.'
+added the draft comment c9 on todo/fix-the-sum.md:2 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b src/app.rs:40 'x'
+exit code: 1
+--- stderr
+error: src/app.rs has 5 lines in the pull request - line 40 is not in it
+
+$ todoer pr comment use-three-for-b src/nope.rs 'x'
+exit code: 1
+--- stderr
+error: src/nope.rs is not in the pull request or in its base
+
+$ todoer pr comment use-three-for-b ../x 'x'
+exit code: 1
+--- stderr
+error: "../x" is not a target - use path:line, path:start-end, path:old:line, a file or a folder/
+
+$ todoer pr comment use-three-for-b src/app.rs:1
+exit code: 1
+--- stderr
+error: a comment needs text - give it as an argument, or on stdin
+
+$ todoer pr summary use-three-for-b
+use-three-for-b  Use three for b   open  by me@example.com
+base 90947ba   todos: todo/fix-the-sum.md
+
+  b is three now.
+
+ M  docs/guide.md             +1         2 comments
+ M  src/app.rs                +1 -1      3 comments
+ R  src/old.rs -> src/lib.rs             1 comment
+    todo/fix-the-sum.md       no change  1 comment
+3 files, +2 -1    1 commit    9 comments    9 draft comments
+
+$ todoer pr details use-three-for-b
+comment on src/
+  [c5] (draft) me@example.com: Move under lib/.
+
+comment on the pull request
+  [c6] (draft) me@example.com: Add a test.
+
+docs/guide.md  (M, +1 -0)
+    1    1 |   # Guide
+    2    2 |
+    3    3 |   line 1
+           |   [c8] (draft) me@example.com: Outside the changes.
+    4    4 |   line 2
+    5    5 |   line 3
+           | @@ -9,3 +9,4 @@ line 6
+    9    9 |   line 7
+   10   10 |   line 8
+   11   11 |   line 9
+        12 | + line 10
+           |   [c7] (draft) me@example.com: From stdin.
+
+src/app.rs  (M, +1 -1)
+           | @@ -1,5 +1,5 @@
+    1    1 |   fn main() {
+    2    2 |       let a = 1;
+    3      | -     let b = 2;
+           |   [c3] (draft) me@example.com: Why two?
+         3 | +     let b = 3;
+           |   [c1] (draft) me@example.com: Use a constant.
+    4    4 |       println!("{}", a + b);
+           |   [c2] (draft) me@example.com: Format this.
+    5    5 |   }
+
+src/old.rs -> src/lib.rs  (R)
+           |   [c4] (draft) me@example.com: Name it math.rs.
+
+todo/fix-the-sum.md  (no change)
+    1    1 |   ---
+    2    2 |   title: Fix the sum
+           |   [c9] (draft) me@example.com: Not in the pull request.
+    3    3 |   status: in-progress
+    4    4 |   assignee: me@example.com
+           | ...
+
+$ todoer pr request-changes use-three-for-b -m 'Close. See the comments.'
+changes requested use-three-for-b: 9 comments
+
+$ git log --format=%s -1 && git status --short
+todoer: request changes on use-three-for-b
+
+--- .todoer/prs/use-three-for-b/review.md
+---
+verdict: changes-requested
+reviewer: me@example.com
+---
+
+Close. See the comments.
+
+### c1 `src/app.rs:3` me@example.com
+
+>     let b = 3;
+
+Use a constant.
+
+### c2 `src/app.rs:2-4` me@example.com
+
+>     let a = 1;
+>     let b = 3;
+>     println!("{}", a + b);
+
+Format this.
+
+### c3 `src/app.rs:old:3` me@example.com
+
+>     let b = 2;
+
+Why two?
+
+### c4 `src/lib.rs` me@example.com
+
+Name it math.rs.
+
+### c5 `src/` me@example.com
+
+Move under lib/.
+
+### c6 pr me@example.com
+
+Add a test.
+
+### c7 `docs/guide.md:12` me@example.com
+
+> line 10
+
+From stdin.
+
+### c8 `docs/guide.md:3` me@example.com
+
+> line 1
+
+Outside the changes.
+
+### c9 `todo/fix-the-sum.md:2` me@example.com
+
+> title: Fix the sum
+
+Not in the pull request.
+
+$ echo 'A draft.' | todoer pr comment use-three-for-b src/app.rs:2
+added the draft comment c10 on src/app.rs:2 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr submit --update [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: a review of use-three-for-b is in progress, with the draft comments c10 - the reviewer must send it first with todoer pr request-changes
+
+$ todoer pr submit -m 'A constant.' [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: use-three-for-b is already submitted, and its review has 9 comments - do what the comments ask, then run todoer pr submit --update to replace the patch and remove the review
+
+$ todoer pr submit -m 'A constant.' --update [cwd: fix-sum]
+updated use-three-for-b: 2 commits, 3 files
+.todoer/prs/use-three-for-b
+todos: todo/fix-the-sum.md
+removed the review (changes-requested, 9 comments) - git history keeps it
+
+$ git log --format=%s -1 && git status --short && ls .todoer/prs/use-three-for-b
+todoer: update use-three-for-b
+pr.diff
+pr.md
+pr.patch
+
+--- .todoer/prs/use-three-for-b/pr.md
+---
+title: Use three for b
+author: me@example.com
+branch: fix-sum
+base: 90947ba61c57a86b2de5d06311765e87a42f07a2
+todos: [todo/fix-the-sum.md]
+---
+
+b is three now.
+
+## Update
+
+A constant.
+
+$ todoer pr summary use-three-for-b
+use-three-for-b  Use three for b   open  by me@example.com
+base 90947ba   todos: todo/fix-the-sum.md
+
+  b is three now.
+
+  ## Update
+
+  A constant.
+
+ M  docs/guide.md             +1
+ M  src/app.rs                +3 -1
+ R  src/old.rs -> src/lib.rs
+3 files, +4 -1    2 commits
+
+$ todoer pr details use-three-for-b --rev 1
+exit code: 1
+--- stderr
+error: unknown option --rev for "todoer pr details" - run todoer pr details --help
+
+$ todoer pr submit [cwd: fix-sum]
+updated use-three-for-b: 2 commits, 3 files
+.todoer/prs/use-three-for-b
+todos: todo/fix-the-sum.md
+
+$ todoer pr comment use-three-for-b src/app.rs:7 'Why i32?'
+added the draft comment c1 on src/app.rs:7 in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr comment use-three-for-b docs/guide.md 'Say what the guide is for.'
+added the draft comment c2 on docs/guide.md in use-three-for-b
+run todoer pr approve or todoer pr request-changes to send the review
+
+$ todoer pr request-changes use-three-for-b
+changes requested use-three-for-b: 2 comments
+
+$ todoer pr submit --update [cwd: fix-sum]
+updated use-three-for-b: 3 commits, 3 files
+.todoer/prs/use-three-for-b
+todos: todo/fix-the-sum.md
+removed the review (changes-requested, 2 comments) - git history keeps it
+
+$ todoer pr comment
+exit code: 1
+--- stderr
+error: use: todoer pr comment <pr> [target] ["<text>"]
+
+$ todoer pr approve
+exit code: 1
+--- stderr
+error: use: todoer pr approve <pr> [-m <text>]
+
+$ todoer pr approve use-three-for-b
+approved use-three-for-b: 0 comments
+
+$ echo staged > staged.txt && git add staged.txt && todoer pr merge use-three-for-b
+exit code: 1
+--- stderr
+error: <tmp>/repo has staged changes - commit or unstage them first
+
+$ todoer pr merge use-three-for-b
+merged use-three-for-b on main: 3 commits
+done: todo/fix-the-sum.md
+
+$ git log --format=%s -5 && git status --short && git worktree list | wc -l && cat src/app.rs
+todoer: merge use-three-for-b
+Explain the guide
+Add a constant
+Use three for b
+todoer: approve use-three-for-b
+2
+fn main() {
+    let a = 1;
+    let b = B;
+    println!("{}", a + b);
+}
+
+const B: i32 = 3;
+
+--- todo/fix-the-sum.md
+---
+title: Fix the sum
+status: done
+assignee: me@example.com
+---
+
+$ todoer pr ls
+no open pull requests
+

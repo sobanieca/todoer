@@ -1,109 +1,161 @@
 # todoer - Commands
 
 Run every command in a git project, in the main checkout or in any of its worktrees. todoer finds
-the main checkout from `git worktree list` and keeps all its data there, in `.todoer/`.
+the main checkout from `git worktree list`. A path argument is relative to the current folder.
+todoer prints paths relative to the repository root.
 
 ## Todos
 
-| Command                               | Does                                             |
-| ------------------------------------- | ------------------------------------------------ |
-| `todoer init`                         | writes `todoer.json` and `.todoer/`              |
-| `todoer ls [--status <list>] [--all]` | lists the open todos; `--all` adds the done ones |
-| `todoer add "<title>" [--body <t>]`   | adds a todo and prints its id                    |
-| `todoer show <id>`                    | prints a todo, with the full path of each image  |
-| `todoer status <id> <status>`         | sets `todo`, `in-progress`, `review` or `done`   |
-| `todoer attach <id> <image>`          | attaches a PNG, JPEG, GIF or WebP image          |
-| `todoer rm <id>`                      | removes a todo and its images                    |
-| `todoer ui [--port <p>] [--open]`     | serves the page on `127.0.0.1` and `::1`         |
+| Command                                                      | Does                                            |
+| ------------------------------------------------------------ | ----------------------------------------------- |
+| `todoer ls [--all] [--mine] [--label l] [--ready] [--json]`  | lists the active todos                          |
+| `todoer add -t <title> [-p dir] [-l label] [-d path] [text]` | adds a todo and prints its path                 |
+| `todoer done <path>...`                                      | sets `status: done`                             |
+| `todoer mv <old> <new>`                                      | moves a todo and changes each `dependsOn` to it |
+| `todoer check`                                               | reports bad todos and exits with `1`            |
+| `todoer claim <path> [--force]`                              | claims a todo, with a commit on the main branch |
+| `todoer unclaim <path>`                                      | frees a todo, with a commit on the main branch  |
 
-`ls` takes `--group <name>` (repeat it for more groups) and `--ready` (the todos that can start
-now). `add` takes `--group <name>`, also more than once.
+- todoer finds the todos with `git ls-files -co --exclude-standard '*.md'`. A todo has a `status`
+  field in its front matter. todoer skips `.todoer/`.
+- `ls` shows the state of each todo: `in-progress`, `ready`, `blocked` (it waits for a todo that is
+  not `done` or `dropped`), `done` or `dropped`. `--all` adds the done and the dropped todos.
+- `add` writes `<slug of the title>.md` in the folder of `-p`, or in the current folder. Give `-l`
+  and `-d` once for each label and each dependency. When there is no text and stdin is not a
+  terminal, `add` reads the text from stdin.
+- `check` reports an unknown status, a bad label, a bad assignee, a missing `dependsOn` path and a
+  cycle. Every command that reads all the todos prints the same problems as warnings.
+- Todo commands change the files of the current checkout. Commit them as other files.
 
-A todo id has 4 characters, like `7f3a`. Todos and pull requests never share an id. `--json` on
-`ls`, `add` and `show` prints JSON.
+### Claims
 
-## Groups
+`claim` sets `status: in-progress` and `assignee: <git config user.email>`. `unclaim` sets
+`status: todo` and removes the assignee. Both change the todo in the main checkout, and commit only
+that file on the main branch.
 
-A group is a name for related todos, like `tests refactoring` or
-`bump some-npm-package version to 0.3.5`. A todo can be in many groups. A group exists while one
-todo is in it.
+- The main checkout must have the main branch checked out.
+- `claim` refuses a todo of another person, a `done` or `dropped` todo, a todo that waits for
+  another todo (`--force` skips this check), and a todo with uncommitted changes in the main
+  checkout.
+- A second claim waits for the first one, then reads the todo again.
 
-| Command                                | Does                                                 |
-| -------------------------------------- | ---------------------------------------------------- |
-| `todoer group ls`                      | lists the groups: done of total, ready, waiting, PRs |
-| `todoer group show "<name>"`           | prints the todos of a group and what they wait for   |
-| `todoer group add "<name>" <id> [...]` | puts todos in a group; a new name makes the group    |
-| `todoer group rm "<name>" <id> [...]`  | takes todos out of a group                           |
-| `todoer group rm "<name>"`             | removes the group from every todo; the todos stay    |
-| `todoer group rename "<old>" "<new>"`  | renames a group in every todo                        |
+## Dependencies and labels
 
-## Dependencies
+| Command                            | Does                                                          |
+| ---------------------------------- | ------------------------------------------------------------- |
+| `todoer dep add <path> <path>...`  | the first todo depends on each other todo                     |
+| `todoer dep rm <path> <path>...`   | removes those dependencies                                    |
+| `todoer dep show <path>`           | prints the tree of what the todo waits for, and what needs it |
+| `todoer label add <path> <label>`  | adds a label to a todo                                        |
+| `todoer label rm <path> <label>`   | removes a label from a todo                                   |
+| `todoer labels [--json]`           | lists the labels with the number of todos                     |
+| `todoer progress [label] [--json]` | prints the progress of a label, or one line for each label    |
 
-A todo or a pull request can depend on other todos and pull requests. There is no limit on the
-depth. An item waits until each todo that it depends on is `done` and each pull request is `merged`.
-A pull request also waits for the dependencies of its todos.
+- todoer refuses a dependency that makes a cycle. There is no depth limit.
+- `dep show` prints a todo that two paths reach once. The second path says `see above`.
+- A label matches `^[a-z0-9-]+$`. A label exists while one todo has it.
+- `progress` counts the `done` todos of all the todos with the label, but not the `dropped` todos.
+  It lists the open todos in dependency order: in progress, ready and blocked. A blocking todo
+  without the label shows `(outside label)`.
 
-| Command                          | Does                                                          |
-| -------------------------------- | ------------------------------------------------------------- |
-| `todoer dep add <id> <id> [...]` | the first item depends on each other item                     |
-| `todoer dep rm <id> <id> [...]`  | removes those dependencies                                    |
-| `todoer dep show <id>`           | prints the tree of what the item waits for, and what needs it |
+## Pull requests
 
-- An id is a todo id or a pull request id. Write `todo:<id>` or `pr:<id>` when you must be clear.
-- todoer refuses a dependency that makes a cycle. A pull request cannot depend on its own todos.
-- `todoer start` and `todoer pr merge` refuse an item that waits. `--force` skips the check.
-- When you remove a todo, todoer removes it from the dependencies of other items.
-- `dep show` prints an item that two paths reach once. The second path says `see above`.
+| Command                                           | Does                                                 |
+| ------------------------------------------------- | ---------------------------------------------------- |
+| `todoer pr submit [-t title] [-m text] [--todo path]... [--update]` | sends the commits of the branch as the pull request |
+| `todoer pr ls [--mine] [--json]`                  | lists the open pull requests                         |
+| `todoer pr merge <pr>`                            | applies the patch on the main branch                 |
+| `todoer pr close <pr>`                            | closes a pull request without a merge                |
 
-## Work and pull requests
+A `<pr>` is the slug or the path of the folder.
 
-| Command                                       | Does                                                 |
-| --------------------------------------------- | ---------------------------------------------------- |
-| `todoer start <id> [<id> ...]`                | makes the branch `todoer/<ids>` and its worktree     |
-| `todoer start <id> [<id> ...] --here`         | claims the todos for the worktree that you are in    |
-| `todoer pr submit [--title <t>] [-m <text>]`  | sends the commits of the worktree as a pull request  |
-| `todoer pr ls [--all]`                        | lists the open pull requests                         |
-| `todoer pr show <id> [--diff] [--revision n]` | prints a pull request and its review comments        |
-| `todoer pr comment <id> <target> "<text>"`    | adds a review comment                                |
-| `todoer pr merge <id> [--keep]`               | applies the patch on the main branch                 |
-| `todoer pr close <id>`                        | closes a pull request without a merge                |
-| `todoer pr prompt <id>`                       | prints the prompt that asks an agent to fix a review |
-| `todoer skill [--init]`                       | prints the agent workflow, or writes it as a skill   |
+- `submit` runs in a worktree, on a branch that is not the main branch, with no uncommitted
+  change. It takes the commits after the merge base with the main branch. `--todo` names a todo
+  of the pull request.
+- A pull request keeps only the patch of its latest submit. A second submit from the same branch
+  replaces the patch and the diff, and removes the review. git history keeps the old patch and the
+  old review.
+- When the review has comments, a second submit stops. Do what the comments ask, then run
+  `todoer pr submit --update`. todoer does not check the comments.
+- A second submit also stops when a reviewer has draft comments. The reviewer must send the review
+  first.
+- `-m` on a second submit writes the `## Update` section of `pr.md`. Tell the reviewer what you
+  changed there.
+- `merge` needs the main branch in the main checkout and no staged change. It stops when the
+  review has a comment, also a draft. A comment is resolved when `pr submit --update` removes the
+  review. It runs
+  `git am --3way`. When the patch does not apply, the main branch does not change. Then todoer sets
+  `status: done` on the todos of the pull request and removes the folder, in one commit.
+- `close` removes the folder in one commit. The todos keep their status.
+- `ls --mine` lists the pull requests that change a file that I own.
 
-`todoer start` makes the worktree in `worktreesDir`. Under Claude Code (the `CLAUDECODE` environment
-variable is set) the default is `.claude/worktrees`, otherwise `.todoer/worktrees`. todoer adds the
-folder to `.git/info/exclude`.
+## Review
 
-`todoer pr submit` must run in a linked worktree, on a branch that is not the main branch, with no
-uncommitted change. It takes the commits after the merge base with the main branch. A second submit
-on the same branch adds the next revision to the same pull request.
+| Command                                                    | Does                                       |
+| ---------------------------------------------------------- | ------------------------------------------ |
+| `todoer pr summary <pr>`                                   | the files, the owners, the comment counts  |
+| `todoer pr details <pr> [file...] [--context N] [--lines 40-80]` | the diff with line numbers and comments |
+| `todoer pr comment <pr> [target] [text]`                   | adds a draft comment                       |
+| `todoer pr approve <pr> [-m text]`                         | sets the verdict and commits the review    |
+| `todoer pr request-changes <pr> [-m text]`                 | sets the verdict and commits the review    |
+| `todoer pr review <pr>`                                    | the summary and all the details            |
 
-`todoer pr merge` must run with the main branch checked out in the main checkout, and with no staged
-change. It runs `git am --3way`. When the patch does not apply, todoer runs `git am --abort` and the
-main branch stays as it was. Without `--keep`, the merge removes the worktree and the branch.
+- `summary`, `details` and `review` take `--owner <team|email>`, `--mine` or `--unowned`.
+- `details` shows the old and the new line numbers. `--context N` reads the old file from the base
+  and shows `N` more lines around each change. `--lines 40-80` shows only these new lines.
+- Colors and `$PAGER` are on only when the output is a terminal. `NO_COLOR` turns colors off.
+- The review, `review.md`, is for the latest patch only. `todoer pr submit --update` removes it,
+  and the next review starts with no comments.
+- A new comment is a draft: a change in `review.md` that is not committed. `approve` and
+  `request-changes` commit the review file, so each review is one commit.
+- With one argument after `<pr>`, `comment` uses it as a target when it names a line, a file or a
+  folder of the diff. Then it reads the text from stdin. Else the argument is the text of a comment
+  on the whole pull request.
 
-## Review targets
+| Target          | Means                                      |
+| --------------- | ------------------------------------------ |
+| `src/a.rs:42`   | line 42 of the new version                 |
+| `src/a.rs:40-45`| lines 40 to 45 of the new version          |
+| `src/a.rs:old:12` | line 12 of the old version, a removed line |
+| `src/a.rs`      | the whole file                             |
+| `src/cli/`      | the whole folder                           |
+| none            | the whole pull request                     |
 
-| Target              | Means                                                |
-| ------------------- | ---------------------------------------------------- |
-| `src/app.js:42`     | line 42 of the new version of the file               |
-| `src/app.js:old:42` | line 42 of the old version, a removed line           |
-| `src/app.js`        | the whole file, for example "rename it" or "move it" |
-| `src/legacy/`       | the whole folder, for example "move it under `lib/`" |
+A new line can be any line of any file in the new version: a file of the pull request, or a file
+of the base that the pull request does not change. Use this to point to code that must change too.
+An old line must be in the diff. `pr details` shows a line outside the changes with two lines
+around it, and `pr summary` lists the files that the pull request does not change, with their
+comments.
+
+### Review with an agent
+
+Review a pull request by talking with an agent. The agent reads the patch with `pr details`, and
+adds the comments that you ask for with `pr comment`. Then it sends the review when you ask.
+
+## Code owners
+
+- `.todoer/teams/<team>.md` lists the members of a team by git email. A member can be an agent.
+- `.todoer/codeowners` uses the CODEOWNERS syntax. When it is missing, todoer reads
+  `.github/CODEOWNERS`. The patterns use the gitignore rules. The last rule that matches wins.
+- `@team` names a team. An email names a person.
+- "Me" is `git config user.email` and each team that has this email.
+- For a renamed file, the owners of the old and the new path count.
+
+## Other commands
+
+| Command                   | Does                                               |
+| ------------------------- | -------------------------------------------------- |
+| `todoer skill [--init]`   | prints the agent workflow, or writes it as a skill |
+| `todoer update`           | installs the latest release                        |
+| `todoer help`             | prints the help                                    |
+| `todoer version`          | prints the version                                 |
+
+`skill --init` writes `.claude/skills/todoer/SKILL.md` and `.agents/skills/todoer/SKILL.md`.
 
 ## Settings - `todoer.json`
 
-| Key            | Value                                        | Default                                    |
-| -------------- | -------------------------------------------- | ------------------------------------------ |
-| `maxImageKb`   | the largest image, in kB (1 kB = 1000 bytes) | `150`                                      |
-| `mainBranch`   | the branch that pull requests go to          | the branch of the main checkout            |
-| `worktreesDir` | the folder for new worktrees, relative       | `.todoer/worktrees` or `.claude/worktrees` |
-| `agentCommand` | the command that runs an agent from the page | none                                       |
-| `port`         | the port of `todoer ui`                      | `4507`                                     |
+| Key            | Value                                   | Default                                      |
+| -------------- | --------------------------------------- | -------------------------------------------- |
+| `mainBranch`   | the branch for the commits of todoer    | `origin/HEAD`, else `main`, else `master`    |
 
 An unknown key or a bad value stops every command, and the message names the key.
-
-`agentCommand` is an array. todoer puts the prompt in place of `{prompt}`, or adds it at the end.
-The agent runs in the main checkout, and its output goes to `.todoer/runs/<time>.log`. For example:
-`["claude", "--permission-mode", "acceptEdits", "-p", "{prompt}"]`. The agent must be able to run
-git and todoer without a question.
