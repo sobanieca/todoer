@@ -1,0 +1,42 @@
+$ cd .. && todoer ls
+other  feat/some-feature
+  in-progress  write-docs  me@example.com
+
+repo  main
+  available    fix-login
+--- stderr
+warning: other: todoer read the todos of the checked-out branch feat/some-feature
+warning: repo: todoer read the todos of the checked-out branch main
+
+$ cd .. && todoer ls --mine
+other  feat/some-feature
+  in-progress  write-docs  me@example.com
+--- stderr
+warning: other: todoer read the todos of the checked-out branch feat/some-feature
+warning: repo: todoer read the todos of the checked-out branch main
+
+$ cd .. && todoer ls --label auth --json
+[
+  {
+    "project": "repo",
+    "branch": "main",
+    "name": "fix-login",
+    "state": "available",
+    "assignee": null,
+    "labels": [
+      "auth"
+    ],
+    "dependsOn": [],
+    "dependsOnLabels": [],
+    "waitsFor": []
+  }
+]
+--- stderr
+warning: other: todoer read the todos of the checked-out branch feat/some-feature
+warning: repo: todoer read the todos of the checked-out branch main
+
+$ cd ../home && todoer ls
+exit code: 1
+--- stderr
+error: this folder is not in a git repository, and no folder in it has todos - run todoer in a project
+

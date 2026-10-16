@@ -1,3 +1,4 @@
+mod areas;
 mod args;
 mod colors;
 mod commands;
@@ -6,11 +7,11 @@ mod frontmatter;
 mod git;
 mod json;
 mod logger;
-mod owners;
 mod pr_view;
 mod project;
 mod prs;
 mod review;
+mod rules;
 mod terminal;
 mod todos;
 mod update;
@@ -33,8 +34,12 @@ const COMMANDS: &[(&str, &[Flag], Run)] = &[
         commands::todos::CLAIM_FLAGS,
         commands::todos::claim,
     ),
-    ("unclaim", &[], commands::todos::unclaim),
-    ("dep", &[], commands::deps::run),
+    (
+        "unclaim",
+        commands::todos::UNCLAIM_FLAGS,
+        commands::todos::unclaim,
+    ),
+    ("dep", commands::deps::FLAGS, commands::deps::run),
     ("label", &[], commands::labels::label),
     (
         "labels",

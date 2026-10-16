@@ -14,8 +14,10 @@ the patch and add the comments that a person asks for.
 - todoer does not make review worktrees. There is no `pr checkout` and no `worktreesDir`.
 - Every review command needs the pull request as an argument.
 - A person can also review in the terminal with `todoer pr review <pr>`.
+- The review happens in the checkout of the branch that the pull request goes into. The person
+  commits the review when it is done.
 
 ## Consequences
 
-- The review needs no branch and no worktree. Only `.todoer/prs/<slug>/` is necessary.
+- The review needs no branch and no worktree. Only `.todoer/prs/<name>/` is necessary.
 - To run the code of a pull request, apply `pr.patch` with `git am` on a branch of your own.

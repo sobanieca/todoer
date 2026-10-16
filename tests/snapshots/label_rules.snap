@@ -1,0 +1,120 @@
+$ todoer add fix-login -l auth
+.todoer/todos/fix-login.md
+
+$ todoer labels rule auth 'Add this label to a todo that changes the login.'
+.todoer/labels/auth.md
+
+$ printf 'Add it to a todo that changes the docs.\nNot to a typo fix.\n' | todoer labels rule docs
+.todoer/labels/docs.md
+
+--- .todoer/labels/docs.md
+Add it to a todo that changes the docs.
+Not to a typo fix.
+
+$ todoer labels rule auth --rm extra
+exit code: 1
+--- stderr
+error: use: todoer labels rule <label> [text] | todoer labels rule <label> --rm
+
+$ todoer labels rule Auth 'A rule.'
+exit code: 1
+--- stderr
+error: "Auth" is not a label - use lowercase letters, digits and hyphens
+
+$ todoer labels rule ui < /dev/null
+exit code: 1
+--- stderr
+error: the rule of ui has no text - give the text, or pipe it on stdin
+
+$ todoer labels rule ui --rm
+exit code: 1
+--- stderr
+error: the label ui has no rule - run todoer labels
+
+$ todoer labels --rm
+exit code: 1
+--- stderr
+error: use: todoer labels [--json]
+
+$ todoer add login-page
+.todoer/todos/login-page.md
+check the label rules: todoer labels
+
+$ todoer labels
+auth  1 todo
+  Add this label to a todo that changes the login.
+docs  0 todos
+  Add it to a todo that changes the docs.
+  Not to a typo fix.
+
+$ todoer labels --json
+[
+  {
+    "label": "auth",
+    "todos": 1,
+    "rule": "Add this label to a todo that changes the login."
+  },
+  {
+    "label": "docs",
+    "todos": 0,
+    "rule": "Add it to a todo that changes the docs.\nNot to a typo fix."
+  }
+]
+
+$ todoer labels mv auth docs
+exit code: 1
+--- stderr
+error: auth and docs both have a rule - remove one rule first: todoer labels rule <label> --rm
+
+$ todoer labels mv auth security
+fix-login: renamed the label auth -> security
+renamed the rule auth -> security
+
+$ todoer labels mv docs guides
+renamed the rule docs -> guides
+
+$ todoer labels mv missing other
+exit code: 1
+--- stderr
+error: no todo and no rule has the label missing - run todoer labels
+
+$ todoer labels
+guides    0 todos
+  Add it to a todo that changes the docs.
+  Not to a typo fix.
+security  1 todo
+  Add this label to a todo that changes the login.
+
+$ todoer labels rule security --rm
+removed the rule of security
+
+$ todoer labels rm guides
+removed the rule of guides
+
+$ todoer labels rm security
+fix-login: removed the label security
+
+$ todoer labels
+no labels
+
+$ todoer check
+2 todos and 0 label rules, no problems
+
+$ todoer check
+exit code: 1
+.todoer/labels/Bad.md: "Bad" is not a label - use lowercase letters, digits and hyphens
+.todoer/labels/empty.md: the rule is empty - write the rule, or run todoer labels rule empty --rm
+.todoer/labels/notes.txt: not a rule - name the file <label>.md
+--- stderr
+error: 3 problems in 2 todos and 1 label rule
+
+$ todoer labels
+empty  0 todos
+--- stderr
+warning: .todoer/labels/Bad.md: "Bad" is not a label - use lowercase letters, digits and hyphens
+warning: .todoer/labels/empty.md: the rule is empty - write the rule, or run todoer labels rule empty --rm
+warning: .todoer/labels/notes.txt: not a rule - name the file <label>.md
+
+$ git status --short
+?? .todoer/
+

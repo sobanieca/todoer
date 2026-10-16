@@ -7,18 +7,13 @@ AI agents and people claim todos, work in git worktrees, and review on the comma
 one Rust binary.
 
 - A todo is a file `.todoer/todos/<name>.md`. The name is the id and the title. The front matter
-  has `assignee`, `labels` and `dependsOn`. All are optional.
+  has `assignee`, `labels`, `dependsOn` and `dependsOnLabels`. All are optional.
 - A todo with an assignee is in progress. A todo without an assignee is new.
 - A todo file exists only while the work is open. `todoer done` and `todoer pr merge` remove it.
   git history keeps it.
-- A pull request is a folder `.todoer/prs/<slug>/`, with the patch, the diff and the review of the
-  latest submit.
-
-### The code is not there yet
-
-The code still has the old todo model: any markdown file with a `status` field, in any folder, with
-`done` and `dropped`. `todo/todos-in-the-todoer-folder.md` moves the code to the model above. Until
-it is done, follow the old model in the code, and the new model in new designs.
+- A pull request is a folder `.todoer/prs/<name>/`, with the patch, the diff and the review of the
+  latest submit. `todoer pr submit --branch <b>` commits it on `b`, the branch that it goes into.
+- todoer has no main branch and no settings file. It works on the current checkout, on any branch.
 
 ## todoer is unreleased - do not preserve backward compatibility
 
@@ -29,8 +24,9 @@ in the same change.
 
 ## Dependencies
 
-Keep the crate list minimal: `ureq` (`todoer update`) only. The argument parser, the colors, the JSON parser, the front matter parser, the diff parser
-and the gitignore pattern matcher are in the crate. Run git as a child process.
+Keep the crate list minimal: `ureq` (`todoer update`) only. The argument parser, the colors, the
+JSON writer, the front matter parser, the diff parser and the gitignore pattern matcher are in the
+crate. Run git as a child process.
 
 ## Architecture
 
@@ -39,39 +35,55 @@ and the gitignore pattern matcher are in the crate. Run git as a child process.
 | `src/main.rs`                            | the command table, `help`, `version`                                 |
 | `src/commands/`                          | one file per command group: todos, deps, labels, pr, skill           |
 | `src/args.rs`                            | the argument parser; each command declares its flags                 |
-| `src/project.rs`                         | the main checkout, `todoer.json`, the lock, commits on the main branch |
+| `src/project.rs`                         | the current checkout, the lock, the commits of todoer                |
 | `src/todos.rs`, `src/frontmatter.rs`     | the todo files, the dependency graph, the front matter               |
-| `src/prs.rs`                             | submit, merge, close, comments, verdicts                             |
+| `src/prs.rs`                             | submit, merge, close, comments                                       |
 | `src/review.rs`, `src/diff.rs`           | the review file format, the comment targets, the diff parser         |
 | `src/pr_view.rs`                         | the text of `pr summary` and `pr details`                            |
-| `src/owners.rs`                          | teams, code owners, the gitignore pattern matcher, the owner filters |
+| `src/areas.rs`                           | the code areas and the gitignore pattern matcher                     |
+| `src/rules.rs`                           | the label rules in `.todoer/labels/`                                 |
 | `src/terminal.rs`                        | stdin and `$PAGER`                                                   |
 | `src/git.rs`                             | git as a child process                                               |
-| `src/json.rs`                            | the JSON parser and writer, for the settings and `--json`            |
+| `src/json.rs`                            | the JSON writer, for `--json`                                        |
 | `src/colors.rs`, `src/logger.rs`         | the colors, and the messages on stderr                               |
 | `src/update.rs`                          | `todoer update`, and the daily check for a new version               |
 | `src/help.txt`, `src/templates/SKILL.md` | the help and the agent skill                                         |
 
 Rules that keep the data correct:
 
-- **todoer commits only on the main branch, in the main checkout.** Only the pull request commands
-  commit. Every commit goes through `Project::commit_on_main`. It checks that the main checkout is
-  on the main branch, and it commits only the named paths.
-- **One lock for the main branch.** Take `Project::lock` before a read that decides a change, and
-  hold it until the write or the commit is done.
-- **The main checkout owns `.todoer/prs/`, `.todoer/teams/` and `.todoer/codeowners`.** A command
-  in a worktree reads and writes these in the main checkout.
-- **A pull request is self-contained.** `pr.patch` is the `git format-patch` series for `git am`.
+- **todoer knows no main branch.** Every command reads and writes `.todoer/` of the current
+  checkout, on any branch. Never add a setting or a guess for a main branch.
+- **todoer commits only its own files.** `claim`, `unclaim` and the pull request commands commit.
+  Call `Project::plan_commit` before the change: it skips the commit for `--no-commit` and when the
+  checkout has other tracked changes. Then `Project::commit` commits only the named paths.
+  `pr merge` uses `Project::amend` to add its paths to the commit of the patch.
+- **A submit lands on the branch that it goes into.** When that branch is checked out, `pr submit`
+  writes and commits in that checkout. Else `Project::commit_to_branch` commits the folder on the
+  branch with a temporary index. No other command changes a branch that is not checked out.
+- **todoer does few git operations.** It reads the diff, the patch and old files, `pr merge`
+  applies a patch, and `pr submit` commits its folder. It never pushes or fetches.
+- **One lock.** Take `Project::lock` before a read that decides a change, and hold it until the
+  write or the commit is done.
+- **A pull request is self-contained.** `pr.patch` is one squashed commit, for `git am`.
   `pr.diff` is the combined diff for the review. The review needs no branch.
 - **Patches never contain `.todoer/`.** Every git command of a submit excludes it.
-- **A dependency never makes a cycle.** `dep add` checks `Todos::reaches` first.
-- **Todo commands do not commit.** Every todo command, also `claim`, changes `.todoer/todos/` of the
-  current checkout, on any branch. The person commits the change. A feature branch can hold todos
-  that are not on the main branch. A todoer pull request cannot add or change a todo.
+- **A dependency never makes a cycle.** `dep add` checks `Todos::reaches` first. A label
+  dependency is an edge to each other todo of the label, so `add`, `label add` and `labels mv`
+  call `Todos::check_no_cycle` before they write.
+- **Most todo commands do not commit.** Every todo command changes `.todoer/todos/` of the current
+  checkout, on any branch. Only `claim` and `unclaim` commit, so that a claim can be pushed at
+  once. The person commits the other changes. A feature branch can hold todos that are not on
+  another branch. A todoer pull request cannot add or change a todo.
 - **A done todo is gone.** `done` and `pr merge` remove the file, and remove its name from each
-  `dependsOn`. Thus a missing name in `dependsOn` is always a problem.
-- **A merge needs a review with no comments.** `pr merge` stops on a draft comment and on a sent
-  comment. Only `pr submit --update` removes the comments.
+  `dependsOn`. Thus a missing name in `dependsOn` is always a problem. When no other todo has a
+  label of `dependsOnLabels`, `done`, `pr merge`, `label rm` and `labels rm` remove the label from
+  it. Thus a label in `dependsOnLabels` that no other todo has is always a problem.
+- **There is no verdict.** A merge accepts a pull request. A committed review with comments asks
+  for changes.
+- **A merge needs a review with no comments.** `pr merge` stops on any comment. Only
+  `pr submit --update` removes the comments.
+- **A failed merge changes nothing.** `pr merge` aborts `git am` on a failure. `--no-commit` tries
+  the patch on a copy of the index before it touches the working tree.
 
 ## Commands
 
@@ -84,8 +96,8 @@ cargo update-snapshots     # accepts new CLI output in tests/snapshots
 
 `cargo verify` must pass before a commit. CI runs it.
 
-When you change a command, an option or a setting, update `src/help.txt`, `docs/cli.md`, the skill
-in `src/templates/SKILL.md` and the README in the same change.
+When you change a command or an option, update `src/help.txt`, `docs/cli.md`, `docs/guide.html`,
+the skill in `src/templates/SKILL.md` and the README in the same change.
 
 ## Testing
 
@@ -100,9 +112,8 @@ ADR. When it is dropped, delete it.
 
 ## Planned work
 
-Planned work is todoer todos, one todo per item. Add a todo with `todoer add`. When the item is
-done, run `todoer done`. Until `todo/todos-in-the-todoer-folder.md` is done, the todos are in
-`todo/`: write the file there, and delete it when the item is done.
+Planned work is todoer todos in `.todoer/todos/`, one todo per item. Add a todo with
+`todoer add`. When the item is done, run `todoer done`.
 
 ## Prose style - Simplified Technical English
 
@@ -127,8 +138,9 @@ are.
 
 ## Landing page
 
-The landing page is `docs/index.html`. When you add a feature or change a behavior, update the
-landing page in the same change, so that it always shows the current feature set.
+The landing page is `docs/index.html`. The guide, `docs/guide.html`, shows the workflow step by
+step. When you add a feature or change a behavior, update both pages in the same change, so that
+they always show the current feature set.
 
 ## Publishing
 

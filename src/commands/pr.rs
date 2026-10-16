@@ -1,21 +1,17 @@
-//! `todoer pr ...`: submit, ls, merge, close, summary, details, comment, approve, request-changes
-//! and review.
+//! `todoer pr ...`: submit, ls, merge, close, summary, details, comment and review.
 
+use crate::areas::{Areas, Filter};
 use crate::args::{self, Args, Flag, option, switch};
 use crate::colors;
+use crate::commands::report;
+use crate::commands::todos::print_removed_labels;
 use crate::json::{self, Value};
-use crate::owners::{Filter, Owners};
 use crate::pr_view::{self, DetailsOptions};
 use crate::project::Project;
-use crate::prs::{self, Pr};
+use crate::prs::{self, Destination, Pr, SubmitOptions};
 use crate::review;
 use crate::terminal;
-
-const OWNER_FLAGS: [Flag; 3] = [
-    option("owner", None),
-    switch("mine", None),
-    switch("unowned", None),
-];
+use crate::todos::name_of;
 
 struct Sub {
     name: &'static str,
@@ -25,58 +21,58 @@ struct Sub {
 }
 
 const SUBMIT_FLAGS: &[Flag] = &[
-    option("title", Some('t')),
+    option("branch", Some('b')),
+    option("name", Some('n')),
     option("message", Some('m')),
     option("todo", None),
     switch("update", None),
+    switch("no-commit", None),
 ];
-const LS_FLAGS: &[Flag] = &[switch("mine", None), switch("json", None)];
+const LS_FLAGS: &[Flag] = &[switch("json", None)];
 const NO_FLAGS: &[Flag] = &[];
-const SUMMARY_FLAGS: &[Flag] = &[OWNER_FLAGS[0], OWNER_FLAGS[1], OWNER_FLAGS[2]];
+const COMMIT_FLAGS: &[Flag] = &[switch("no-commit", None)];
+const AREA_FLAGS: &[Flag] = &[option("area", Some('a')), option("exclude", Some('x'))];
 const DETAILS_FLAGS: &[Flag] = &[
-    OWNER_FLAGS[0],
-    OWNER_FLAGS[1],
-    OWNER_FLAGS[2],
+    option("area", Some('a')),
+    option("exclude", Some('x')),
     option("context", None),
     option("lines", None),
 ];
-const VERDICT_FLAGS: &[Flag] = &[option("message", Some('m'))];
-const REVIEW_FLAGS: &[Flag] = &[OWNER_FLAGS[0], OWNER_FLAGS[1], OWNER_FLAGS[2]];
 
 const SUBS: &[Sub] = &[
     Sub {
         name: "submit",
-        usage: "todoer pr submit [-t <title>] [-m <text>] [--todo <path>]... [--update]",
+        usage: "todoer pr submit --branch <branch> [-n <name>] [-m <text>] [--todo <name>]... [--update] [--no-commit]",
         flags: SUBMIT_FLAGS,
         run: submit,
     },
     Sub {
         name: "ls",
-        usage: "todoer pr ls [--mine] [--json]",
+        usage: "todoer pr ls [--json]",
         flags: LS_FLAGS,
         run: ls,
     },
     Sub {
         name: "merge",
-        usage: "todoer pr merge <pr>",
-        flags: NO_FLAGS,
+        usage: "todoer pr merge <pr> [--no-commit]",
+        flags: COMMIT_FLAGS,
         run: merge,
     },
     Sub {
         name: "close",
-        usage: "todoer pr close <pr>",
-        flags: NO_FLAGS,
+        usage: "todoer pr close <pr> [--no-commit]",
+        flags: COMMIT_FLAGS,
         run: close,
     },
     Sub {
         name: "summary",
-        usage: "todoer pr summary <pr> [--owner <team|email>] [--mine] [--unowned]",
-        flags: SUMMARY_FLAGS,
+        usage: "todoer pr summary <pr> [-a <area,...>] [-x <area,...>]",
+        flags: AREA_FLAGS,
         run: summary,
     },
     Sub {
         name: "details",
-        usage: "todoer pr details <pr> [file...] [--context N] [--lines 40-80] [--owner <team|email>] [--mine] [--unowned]",
+        usage: "todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]",
         flags: DETAILS_FLAGS,
         run: details,
     },
@@ -87,21 +83,9 @@ const SUBS: &[Sub] = &[
         run: comment,
     },
     Sub {
-        name: "approve",
-        usage: "todoer pr approve <pr> [-m <text>]",
-        flags: VERDICT_FLAGS,
-        run: approve,
-    },
-    Sub {
-        name: "request-changes",
-        usage: "todoer pr request-changes <pr> [-m <text>]",
-        flags: VERDICT_FLAGS,
-        run: request_changes,
-    },
-    Sub {
         name: "review",
-        usage: "todoer pr review <pr> [--owner <team|email>] [--mine] [--unowned]",
-        flags: REVIEW_FLAGS,
+        usage: "todoer pr review <pr> [-a <area,...>] [-x <area,...>]",
+        flags: AREA_FLAGS,
         run: review_command,
     },
 ];
@@ -144,17 +128,17 @@ fn usage_all() -> String {
 fn submit(args: &Args) -> Result<(), String> {
     args.expect_positional(0, 0, usage("submit"))?;
     let project = Project::find()?;
-    let todos = args
-        .values("todo")
-        .iter()
-        .map(|path| project.relative(path))
-        .collect::<Result<Vec<_>, _>>()?;
+    let todos: Vec<String> = args.values("todo").iter().map(|arg| name_of(arg)).collect();
     let result = prs::submit(
         &project,
-        args.value("title"),
-        args.value("message"),
-        &todos,
-        args.has("update"),
+        &SubmitOptions {
+            branch: args.value("branch"),
+            name: args.value("name"),
+            message: args.value("message"),
+            todos: &todos,
+            update: args.has("update"),
+            no_commit: args.has("no-commit"),
+        },
     )?;
     let pr = &result.pr;
     let what = if result.created {
@@ -162,25 +146,47 @@ fn submit(args: &Args) -> Result<(), String> {
     } else {
         "updated"
     };
+    let commits = match result.commits {
+        1 => "1 commit".to_string(),
+        count => format!("{count} commits squashed to 1"),
+    };
     println!(
-        "{what} {}: {}, {}",
-        pr.slug,
-        plural(result.commits, "commit"),
-        plural(result.files, "file")
+        "{what} {}: {commits}, {}, into {}",
+        pr.name,
+        plural(result.files, "file"),
+        pr.into
     );
-    println!("{}", pr.rel_dir());
+    match &result.destination {
+        Destination::Checkout(target) => println!(
+            "{} on {}, in the checkout {}",
+            pr.rel_dir(),
+            pr.into,
+            target.root.display()
+        ),
+        Destination::Branch(_) => println!("{} on {}", pr.rel_dir(), pr.into),
+    }
     if !pr.todos.is_empty() {
         println!("todos: {}", pr.todos.join(", "));
     }
-    if let Some(review) = result
-        .cleared
-        .filter(|review| !review.comments.is_empty() || review.verdict != "pending")
-    {
+    if let Some(review) = result.cleared.filter(|review| !review.comments.is_empty()) {
         println!(
-            "removed the review ({}, {}) - git history keeps it",
-            review.verdict,
+            "removed the review ({}) - git history keeps it",
             plural(review.comments.len(), "comment")
         );
+    }
+    if result.plan.commit {
+        println!("committed on {}", pr.into);
+    } else if result.plan.others.is_empty() {
+        println!(
+            "not committed (--no-commit) - the pull request is in the working tree of {}",
+            pr.into
+        );
+    } else {
+        crate::logger::warn(&format!(
+            "not committed - the checkout of {} has other changes: {}. The pull request is in its working tree. Commit it yourself",
+            pr.into,
+            result.plan.others.join(", ")
+        ));
     }
     Ok(())
 }
@@ -192,27 +198,18 @@ fn plural(count: usize, word: &str) -> String {
 fn ls(args: &Args) -> Result<(), String> {
     args.expect_positional(0, 0, usage("ls"))?;
     let project = Project::find()?;
-    let mut list = prs::list(&project)?;
-    if args.has("mine") {
-        let owners = Owners::load(&project.root);
-        let filter = Filter::Mine(owners.identities(&project.me()?));
-        list.retain(|pr| {
-            pr.files()
-                .iter()
-                .any(|file| filter.keep(&owners.of_file(file)))
-        });
-    }
+    let list = prs::list(&project)?;
     if args.has("json") {
         let items = list
             .iter()
             .map(|pr| {
                 Value::object(vec![
-                    ("slug", Value::str(&pr.slug)),
+                    ("name", Value::str(&pr.name)),
                     ("path", Value::str(&pr.rel_dir())),
-                    ("title", Value::str(&pr.title)),
                     ("author", Value::str(&pr.author)),
-                    ("branch", Value::str(&pr.branch)),
-                    ("verdict", Value::str(&pr.verdict(&project))),
+                    ("from", Value::str(&pr.from)),
+                    ("into", Value::str(&pr.into)),
+                    ("comments", Value::Number(pr.review().comments.len() as f64)),
                     ("todos", Value::strings(&pr.todos)),
                 ])
             })
@@ -224,16 +221,21 @@ fn ls(args: &Args) -> Result<(), String> {
         println!("no open pull requests");
         return Ok(());
     }
-    let slug_width = list.iter().map(|pr| pr.slug.len()).max().unwrap_or(0);
-    let author_width = list.iter().map(|pr| pr.author.len()).max().unwrap_or(0);
+    let name_width = list.iter().map(|pr| pr.name.len()).max().unwrap_or(0);
     for pr in &list {
-        let verdict = pr.verdict(&project);
+        let comments = pr.review().comments.len();
+        let review = if comments == 0 {
+            colors::gray("no comments")
+        } else {
+            colors::yellow(&plural(comments, "comment"))
+        };
         println!(
-            "{}  {}  {}  {}",
-            colors::pad(&colors::bold(&pr.slug), slug_width),
-            colors::pad(&pr_view::verdict_color(&verdict), 17),
-            colors::pad(&pr.author, author_width),
-            pr.title
+            "{}  {}  {} -> {}  {}",
+            colors::pad(&colors::bold(&pr.name), name_width),
+            colors::pad(&review, 11),
+            pr.from,
+            pr.into,
+            pr.author
         );
     }
     Ok(())
@@ -247,19 +249,24 @@ fn merge(args: &Args) -> Result<(), String> {
     args.expect_positional(1, 1, usage("merge"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    let merged = prs::merge(&project, &pr)?;
-    println!(
-        "merged {} on {}: {}",
-        pr.slug,
-        project.main_branch,
-        plural(merged.commits, "commit")
-    );
-    for path in &merged.done {
-        println!("done: {path}");
+    let merged = prs::merge(&project, &pr, args.has("no-commit"))?;
+    let branch = project.branch_name()?;
+    if merged.applied {
+        println!("merged {} into {branch}", pr.name);
+    } else {
+        println!(
+            "merged {} into {branch}: the changes were already on {branch}",
+            pr.name
+        );
     }
-    for warning in &merged.warnings {
-        crate::logger::warn(warning);
+    for name in &merged.done {
+        println!("done: {name}");
     }
+    for name in &merged.changed {
+        println!("updated dependsOn in {name}");
+    }
+    print_removed_labels(&merged.removed_labels);
+    report(&merged.plan);
     Ok(())
 }
 
@@ -267,14 +274,15 @@ fn close(args: &Args) -> Result<(), String> {
     args.expect_positional(1, 1, usage("close"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    prs::close(&project, &pr)?;
-    println!("closed {}", pr.slug);
+    let plan = prs::close(&project, &pr, args.has("no-commit"))?;
+    println!("closed {}", pr.name);
     if !pr.todos.is_empty() {
         println!(
-            "the todos keep their status: {} - run todoer unclaim <path> to free a todo",
+            "the todos stay: {} - run todoer unclaim <name> to free a todo",
             pr.todos.join(", ")
         );
     }
+    report(&plan);
     Ok(())
 }
 
@@ -282,10 +290,14 @@ fn summary(args: &Args) -> Result<(), String> {
     args.expect_positional(1, 1, usage("summary"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    let owners = Owners::load(&project.root);
-    let filter = Filter::from_args(args, &project, &owners)?;
-    print!("{}", pr_view::summary(&project, &pr, &owners, &filter));
+    let areas = Areas::load(&project.root);
+    let filter = area_filter(&areas, args)?;
+    print!("{}", pr_view::summary(&pr, &filter));
     Ok(())
+}
+
+fn area_filter<'a>(areas: &'a Areas, args: &Args) -> Result<Filter<'a>, String> {
+    Filter::new(areas, &args.values("area"), &args.values("exclude"))
 }
 
 fn details_text(
@@ -293,17 +305,16 @@ fn details_text(
     pr: &Pr,
     args: &Args,
     paths: Vec<String>,
-    owners: &Owners,
+    filter: &Filter,
 ) -> Result<String, String> {
-    let filter = Filter::from_args(args, project, owners)?;
     let lines = args.value("lines").map(pr_view::parse_lines).transpose()?;
     let options = DetailsOptions {
         paths,
         context: args.number("context")?.unwrap_or(0),
         lines,
-        filter: &filter,
+        filter,
     };
-    pr_view::details(project, pr, owners, &options)
+    pr_view::details(project, pr, &options)
 }
 
 fn details(args: &Args) -> Result<(), String> {
@@ -314,8 +325,9 @@ fn details(args: &Args) -> Result<(), String> {
         .iter()
         .map(|path| project.relative(path).unwrap_or_else(|_| path.clone()))
         .collect();
-    let owners = Owners::load(&project.root);
-    let text = details_text(&project, &pr, args, paths, &owners)?;
+    let areas = Areas::load(&project.root);
+    let filter = area_filter(&areas, args)?;
+    let text = details_text(&project, &pr, args, paths, &filter)?;
     terminal::page(&text);
     Ok(())
 }
@@ -353,50 +365,32 @@ fn comment(args: &Args) -> Result<(), String> {
     let text = read_text(text)?;
     let comment = prs::add_comment(&project, &pr, target, &text)?;
     println!(
-        "added the draft comment {} on {} in {}",
+        "added the comment {} on {} in {}",
         comment.id,
         if target.is_some() {
             comment.target.format()
         } else {
             "the pull request".into()
         },
-        pr.slug
+        pr.name
     );
-    println!("run todoer pr approve or todoer pr request-changes to send the review");
-    Ok(())
-}
-
-fn verdict(args: &Args, verdict: &str, usage: &str) -> Result<(), String> {
-    args.expect_positional(1, 1, usage)?;
-    let project = Project::find()?;
-    let pr = prs::resolve(&project, first(args))?;
-    let review = prs::set_verdict(&project, &pr, verdict, args.value("message"))?;
     println!(
-        "{} {}: {}",
-        verdict.replace('-', " "),
-        pr.slug,
-        plural(review.comments.len(), "comment")
+        "the review is not committed - when it is done, run: git add {path} && git commit -m \"Review {}\" -- {path}",
+        pr.name,
+        path = pr.rel(prs::REVIEW)
     );
     Ok(())
-}
-
-fn approve(args: &Args) -> Result<(), String> {
-    verdict(args, "approved", usage("approve"))
-}
-
-fn request_changes(args: &Args) -> Result<(), String> {
-    verdict(args, "changes-requested", usage("request-changes"))
 }
 
 fn review_command(args: &Args) -> Result<(), String> {
     args.expect_positional(1, 1, usage("review"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    let owners = Owners::load(&project.root);
-    let filter = Filter::from_args(args, &project, &owners)?;
-    let mut text = pr_view::summary(&project, &pr, &owners, &filter);
+    let areas = Areas::load(&project.root);
+    let filter = area_filter(&areas, args)?;
+    let mut text = pr_view::summary(&pr, &filter);
     text.push('\n');
-    text.push_str(&details_text(&project, &pr, args, Vec::new(), &owners)?);
+    text.push_str(&details_text(&project, &pr, args, Vec::new(), &filter)?);
     terminal::page(&text);
     Ok(())
 }

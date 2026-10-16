@@ -1,0 +1,125 @@
+$ todoer pr submit --branch main -n 'First try' [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: "First try" is not a pull request name - use first-try
+
+$ todoer pr submit --branch main -n first-try [cwd: fix-sum]
+submitted first-try: 1 commit, 3 files, into main
+.todoer/prs/first-try on main, in the checkout <tmp>/repo
+committed on main
+
+$ todoer pr close first-try
+closed first-try
+
+$ git log --format=%s -1 && ls .todoer
+todoer: close first-try
+prs
+todos
+
+$ todoer pr submit --branch main -n second-try --todo fix-the-sum [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: fix-sum has changes that are not committed: notes.txt - commit them first
+
+$ todoer pr submit --branch main -n second-try --todo fix-the-sum [cwd: fix-sum]
+submitted second-try: 1 commit, 3 files, into main
+.todoer/prs/second-try on main, in the checkout <tmp>/repo
+todos: fix-the-sum
+committed on main
+
+$ todoer pr submit --branch main -n third-try [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: the pull request of fix-sum is second-try - a submit cannot rename it to third-try
+
+$ todoer pr submit --branch main -n second-try [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: the pull request second-try exists - pick another name, or use --update to replace its patch
+
+$ todoer pr submit --branch main -n second-try --update -m 'From a new branch.' [cwd: fix-sum]
+updated second-try: 1 commit, 3 files, into main
+.todoer/prs/second-try on main, in the checkout <tmp>/repo
+todos: fix-the-sum
+committed on main
+
+$ todoer pr ls && git log --format=%s -1 && git status --short
+second-try  no comments  fix-sum-2 -> main  me@example.com
+todoer: update second-try
+
+$ todoer pr merge second-try
+merged second-try into main
+done: fix-the-sum
+--- stderr
+warning: not committed - the checkout has other changes: notes.txt. The changes of todoer are in the working tree. Commit them yourself
+
+$ git log --format=%s -1 && git status --short
+todoer: update second-try
+ D .todoer/prs/second-try/pr.diff
+ D .todoer/prs/second-try/pr.md
+ D .todoer/prs/second-try/pr.patch
+ D .todoer/todos/fix-the-sum.md
+M  docs/guide.md
+ M notes.txt
+M  src/app.rs
+R  src/old.rs -> src/lib.rs
+
+$ todoer pr merge second-try --no-commit
+merged second-try into main
+done: fix-the-sum
+not committed (--no-commit) - the changes are in the working tree
+
+$ git log --format=%s -1 && git status --short && cat src/app.rs
+todoer: update second-try
+ D .todoer/prs/second-try/pr.diff
+ D .todoer/prs/second-try/pr.md
+ D .todoer/prs/second-try/pr.patch
+ D .todoer/todos/fix-the-sum.md
+M  docs/guide.md
+M  src/app.rs
+R  src/old.rs -> src/lib.rs
+fn main() {
+    let a = 1;
+    let b = 3;
+    println!("{}", a + b);
+}
+
+$ todoer pr merge second-try
+exit code: 1
+--- stderr
+error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --update:
+Patch failed at 0001 Use three for b
+error: Failed to merge in the changes.
+
+$ todoer pr merge second-try --no-commit
+exit code: 1
+--- stderr
+error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --update:
+Applied patch to 'src/app.rs' with conflicts.
+
+$ git log --format=%s -1 && git status --short
+change app on main
+
+$ todoer pr comment second-try 'Add a test.'
+added the comment c1 on the pull request in second-try
+the review is not committed - when it is done, run: git add .todoer/prs/second-try/review.md && git commit -m "Review second-try" -- .todoer/prs/second-try/review.md
+
+$ todoer pr merge second-try
+exit code: 1
+--- stderr
+error: second-try has the unresolved comments c1 - the author must do what they ask, then run todoer pr submit --update
+
+$ todoer pr close second-try --no-commit && git status --short
+closed second-try
+the todos stay: fix-the-sum - run todoer unclaim <name> to free a todo
+not committed (--no-commit) - the changes are in the working tree
+ D .todoer/prs/second-try/pr.diff
+ D .todoer/prs/second-try/pr.md
+ D .todoer/prs/second-try/pr.patch
+
+$ todoer pr close second-try && git log --format=%s -1 && todoer pr ls
+closed second-try
+the todos stay: fix-the-sum - run todoer unclaim <name> to free a todo
+todoer: close second-try
+no open pull requests
+

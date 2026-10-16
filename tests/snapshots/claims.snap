@@ -1,69 +1,103 @@
-$ todoer add -t First -p todo
-todo/first.md
+$ todoer add first -l core
+.todoer/todos/first.md
 
-$ todoer add -t Second -p todo -d todo/first.md
-todo/second.md
+$ todoer add second -l core -d first
+.todoer/todos/second.md
 
-$ todoer claim todo/second.md
+$ todoer add third -d second
+.todoer/todos/third.md
+
+$ todoer claim
 exit code: 1
 --- stderr
-error: todo/second.md waits for todo/first.md - claim a todo that is ready, or use --force
+error: name a todo or a label - use todoer claim <name>... [--label l] [--force] [--no-commit]
 
-$ todoer claim todo/first.md
-claimed todo/first.md for me@example.com on main
+$ todoer claim second
+exit code: 1
+--- stderr
+error: second waits for first - claim a todo that is not blocked, claim it together with the todos that it waits for, or use --force
 
-$ todoer claim todo/first.md
-todo/first.md is already claimed by you
+$ todoer claim first
+claimed first for me@example.com
+
+$ todoer claim first
+first is already claimed by you
 
 $ git log --format=%s -1 && git status --short
-todoer: claim todo/first.md
+todoer: claim first
 
---- todo/first.md
+--- .todoer/todos/first.md
 ---
-title: First
-status: in-progress
+labels: [core]
 assignee: me@example.com
 ---
 
-$ git config user.email other@example.com && todoer claim todo/first.md
+$ git config user.email other@example.com && todoer claim first
 exit code: 1
 --- stderr
-error: todo/first.md is claimed by me@example.com - pick another todo, or ask me@example.com to run todoer unclaim
+error: first is claimed by me@example.com - pick another todo, or ask me@example.com to run todoer unclaim
 
-$ todoer claim todo/second.md --force
-claimed todo/second.md for other@example.com on main
+$ todoer claim --label core
+exit code: 1
+skipped first: claimed by me@example.com
+--- stderr
+error: second waits for first - claim a todo that is not blocked, claim it together with the todos that it waits for, or use --force
+
+$ todoer claim third
+exit code: 1
+--- stderr
+error: third waits for second - claim a todo that is not blocked, claim it together with the todos that it waits for, or use --force
+
+$ todoer claim third second
+exit code: 1
+--- stderr
+error: second waits for first - claim a todo that is not blocked, claim it together with the todos that it waits for, or use --force
+
+$ git log --format=%s -1 && git status --short
+todoer: claim first
 
 $ git config user.email me@example.com && todoer ls --mine
-in-progress  todo/first.md  First  me@example.com
+in-progress  first  me@example.com
 
-$ todoer unclaim todo/first.md
-unclaimed todo/first.md (was me@example.com)
-
-$ todoer unclaim todo/first.md
+$ todoer claim --label nope
 exit code: 1
 --- stderr
-error: todo/first.md is not claimed - its status is todo
+error: no todo has the label nope - run todoer labels
 
-$ echo change >> todo/first.md && todoer claim todo/first.md
+$ todoer unclaim first
+unclaimed first (was me@example.com)
+
+$ todoer unclaim first
 exit code: 1
 --- stderr
-error: todo/first.md has uncommitted changes in the main checkout <tmp>/repo - commit or discard them first
+error: first is not claimed
 
-$ todoer add -t Third -p todo && todoer claim todo/third.md && git status --short
-todo/third.md
-claimed todo/third.md for me@example.com on main
+$ git log --format=%s -1 && git status --short
+todoer: unclaim first
 
-$ todoer claim ../repo/todo/first.md [cwd: feature]
-exit code: 1
+--- .todoer/todos/first.md
+---
+labels: [core]
+---
+
+$ todoer claim first && git log --format=%s -1 && git status --short
+claimed first for me@example.com
+notes
+ M .todoer/todos/first.md
+ M notes.txt
 --- stderr
-error: ../repo/todo/first.md is outside the repository <tmp>/feature
+warning: not committed - the checkout has other changes: notes.txt. The changes of todoer are in the working tree. Commit them yourself
 
-$ todoer claim todo/first.md && git -C ../repo log --format=%s -1 [cwd: feature]
-claimed todo/first.md for me@example.com on main
-todoer: claim todo/first.md
+$ todoer unclaim first --no-commit && git status --short
+unclaimed first (was me@example.com)
+not committed (--no-commit) - the changes are in the working tree
 
-$ todoer unclaim todo/first.md
-exit code: 1
---- stderr
-error: the main checkout <tmp>/repo is on other - check out main there first. todoer commits only on main
+$ todoer ls [cwd: feature]
+available    first
+blocked      second  waits for first
+blocked      third   waits for second
+
+$ todoer claim first && git log --format=%s -1 && git status --short [cwd: feature]
+claimed first for me@example.com
+todoer: claim first
 

@@ -1,8 +1,8 @@
 //! Front matter: `key: value` lines between two `---` lines at the top of a markdown file. A change
-//! keeps the order of the fields, the other lines and the body as they are.
+//! keeps the order of the fields, the other lines and the body as they are. A front matter with no
+//! line renders as nothing.
 
 use std::borrow::Cow;
-use std::io::{self, BufRead};
 
 const FENCE: &str = "---";
 
@@ -17,7 +17,6 @@ pub struct Document {
     lines: Vec<Line>,
     pub body: String,
     has_front: bool,
-    body_read: bool,
 }
 
 impl Document {
@@ -26,7 +25,6 @@ impl Document {
             lines: Vec::new(),
             body: String::new(),
             has_front: true,
-            body_read: true,
         }
     }
 
@@ -41,7 +39,6 @@ impl Document {
                 lines: Vec::new(),
                 body: text.into_owned(),
                 has_front: false,
-                body_read: true,
             };
         };
         let lines = if front.is_empty() {
@@ -53,40 +50,10 @@ impl Document {
             lines,
             body: body.to_string(),
             has_front: true,
-            body_read: true,
         }
     }
 
-    pub fn read_front(reader: &mut impl BufRead) -> io::Result<Option<Document>> {
-        let start = reader.fill_buf()?;
-        if !start.starts_with(b"---\n") && !start.starts_with(b"---\r\n") {
-            return Ok(None);
-        }
-        let mut line = String::new();
-        reader.read_line(&mut line)?;
-        let mut lines = Vec::new();
-        loop {
-            line.clear();
-            if reader.read_line(&mut line)? == 0 {
-                return Ok(None);
-            }
-            let text = line
-                .strip_suffix('\n')
-                .map(|text| text.strip_suffix('\r').unwrap_or(text))
-                .unwrap_or(&line);
-            if text == FENCE {
-                break;
-            }
-            lines.push(front_line(text));
-        }
-        Ok(Some(Document {
-            lines,
-            body: String::new(),
-            has_front: true,
-            body_read: false,
-        }))
-    }
-
+    #[cfg(test)]
     pub fn has_front(&self) -> bool {
         self.has_front
     }
@@ -120,10 +87,6 @@ impl Document {
             .push(Line::Field(key.to_string(), value.to_string()));
     }
 
-    pub fn set_text(&mut self, key: &str, value: &str) {
-        self.set(key, &quote_if_needed(value));
-    }
-
     pub fn set_list(&mut self, key: &str, items: &[String]) {
         if items.is_empty() {
             self.remove(key);
@@ -138,9 +101,11 @@ impl Document {
     }
 
     pub fn render(&self) -> String {
-        assert!(self.body_read, "render needs a document with its body");
         if !self.has_front {
             return self.body.clone();
+        }
+        if self.lines.is_empty() {
+            return self.body.trim_start_matches('\n').to_string();
         }
         let mut out = String::from("---\n");
         for line in &self.lines {
@@ -237,15 +202,6 @@ fn needs_quotes(value: &str) -> bool {
         || value.contains(" #")
 }
 
-fn quote_if_needed(value: &str) -> String {
-    let value = value.replace('\n', " ");
-    if needs_quotes(&value) {
-        format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
-    } else {
-        value
-    }
-}
-
 pub fn format_list(items: &[String]) -> String {
     let parts: Vec<String> = items
         .iter()
@@ -308,45 +264,13 @@ mod tests {
     }
 
     #[test]
-    fn quotes_text_when_needed() {
-        let mut doc = Document::new();
-        doc.set_text("title", "Fix: crash");
-        doc.set_text("other", "plain words");
-        assert_eq!(doc.get("title"), Some("\"Fix: crash\""));
-        assert_eq!(doc.text("title").as_deref(), Some("Fix: crash"));
-        assert_eq!(doc.get("other"), Some("plain words"));
-    }
-
-    fn front(text: &str) -> Option<Document> {
-        Document::read_front(&mut text.as_bytes()).unwrap()
-    }
-
-    #[test]
-    fn reads_only_the_front_matter() {
-        let doc = front(TODO).unwrap();
-        assert_eq!(doc.text("title").as_deref(), Some("Port: the parser"));
-        assert_eq!(doc.list("labels"), vec!["a", "b c"]);
-        assert_eq!(doc.body, "");
-        let crlf = front("---\r\nstatus: todo\r\n---\r\nbody\r\n").unwrap();
-        assert_eq!(crlf.get("status"), Some("todo"));
-        assert!(front("---\n---\n").unwrap().lines.is_empty());
-        assert!(front("---\nstatus: todo\n---").is_some());
-        assert!(front("# Title\n").is_none());
-        assert!(front("---").is_none());
-        assert!(front("----\nstatus: todo\n---\n").is_none());
-        assert!(front("---\nstatus: todo\nno end\n").is_none());
-    }
-
-    #[test]
-    #[should_panic(expected = "render needs a document with its body")]
-    fn a_front_matter_alone_does_not_render() {
-        front(TODO).unwrap().render();
-    }
-
-    #[test]
     fn handles_an_empty_front_matter() {
         let doc = Document::parse("---\n---\nbody\n");
         assert!(doc.has_front());
         assert_eq!(doc.body, "body\n");
+        assert_eq!(doc.render(), "body\n");
+        let mut doc = Document::parse("---\nassignee: me@x.io\n---\n\nText.\n");
+        doc.remove("assignee");
+        assert_eq!(doc.render(), "Text.\n");
     }
 }

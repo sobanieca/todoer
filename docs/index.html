@@ -466,6 +466,55 @@
     .card.hot {
       border-color: var(--accent);
     }
+    .owner {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+    }
+    .owner .me {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 1;
+      padding: 4px 9px 4px 6px;
+      border-radius: 99px;
+      background: #ffd84d;
+      color: #2a2000;
+    }
+    .owner .bot {
+      width: 18px;
+      height: 18px;
+      margin-left: -6px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #4f46e5;
+      box-shadow: 0 0 0 2px var(--surface);
+    }
+    .owner .bot svg {
+      width: 11px;
+      height: 11px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .card .owner {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      opacity: 0;
+      transform: scale(0.6);
+      transition: opacity 0.35s, transform 0.35s cubic-bezier(.2,.8,.2,1);
+    }
+    .card.owned .owner {
+      opacity: 1;
+      transform: none;
+    }
+    .card.owned .title {
+      max-width: calc(100% - 50px);
+    }
     .card .box {
       width: 18px;
       height: 18px;
@@ -556,7 +605,7 @@
       color: var(--block);
       background: var(--block-soft);
     }
-    .st[data-k="ready"] {
+    .st[data-k="available"] {
       color: var(--ink);
       border-color: var(--line);
       background: transparent;
@@ -575,7 +624,6 @@
       color: var(--warn);
       background: var(--warn-soft);
     }
-    .st[data-k="approved"],
     .st[data-k="done"] {
       color: var(--done);
       background: var(--done-soft);
@@ -812,6 +860,20 @@
     .who.agent {
       background: #4f46e5;
       color: #fff;
+    }
+    .who.agent.two {
+      background: #0f766e;
+    }
+    .who svg {
+      width: 11px;
+      height: 11px;
+      margin-right: 3px;
+      vertical-align: -1px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .who.you {
       background: #ffd84d;
@@ -1205,7 +1267,8 @@
       background: var(--marker-soft);
       color: var(--ink);
     }
-    .review .aside {
+    .review .aside,
+    .start .aside {
       margin-top: 14px;
       font-size: 14.5px;
       color: var(--muted);
@@ -1531,14 +1594,15 @@
         <p class="lead"><code class="name">todoer</code> is one binary. Agents and people claim todos, work in git worktrees, and review the pull requests on the command line. No database, no server, no account.</p>
         <div class="actions">
           <a class="btn primary" href="#install">Install</a>
+          <a class="btn" href="guide.html">Read the guide</a>
           <a class="btn" href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md"
             target="_blank" rel="noopener">Read the commands</a>
         </div>
 
-        <div class="stage" id="stage" aria-label="Animated example: an agent claims a todo, submits a pull request, you review it and merge it">
+        <div class="stage" id="stage" aria-label="Animated example: agent 1 claims a todo for you and submits a pull request into main, agent 2 reviews it with you and you commit the review, agent 1 updates the pull request, and you merge it">
           <div class="stage-bar">
             <span class="where"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="dir-name">~/code/my-project</span></span>
-            <span class="progress" title="todoer progress auth"><span class="meter"><b id="meter"></b></span><span class="ptext" id="ptext">auth 0/2 done (0%)</span></span>
+            <span class="progress" title="todoer progress auth"><span class="meter"><b id="meter"></b></span><span class="ptext" id="ptext">auth 0/2 in progress (0%)</span></span>
           </div>
 
           <div class="board" id="board">
@@ -1547,20 +1611,21 @@
               <div class="col-body">
                 <article class="card" id="card-login">
                   <span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
-                  <span class="title">Fix the login crash</span>
-                  <span class="path">todo/fix-the-login-crash.md</span>
-                  <span class="chips"><span class="chip lab">auth</span><span class="chip st" data-k="ready">ready</span></span>
+                  <span class="title">fix-the-login-crash</span>
+                  <span class="owner" title="assignee: you@example.com. Agent 1 writes the code."><span class="me">you</span><span class="bot"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4"/><path d="M9.5 13v1.5M14.5 13v1.5"/></svg></span></span>
+                  <span class="path">.todoer/todos/fix-the-login-crash.md</span>
+                  <span class="chips"><span class="chip lab">auth</span><span class="chip st" data-k="available">available</span></span>
                 </article>
                 <article class="card" id="card-docs">
                   <span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
-                  <span class="title">Write the API docs</span>
-                  <span class="path">todo/write-the-api-docs.md</span>
-                  <span class="chips"><span class="chip lab docs">docs</span><span class="chip st" data-k="ready">ready</span></span>
+                  <span class="title">write-the-api-docs</span>
+                  <span class="path">.todoer/todos/write-the-api-docs.md</span>
+                  <span class="chips"><span class="chip lab docs">docs</span><span class="chip st" data-k="available">available</span></span>
                 </article>
                 <article class="card is-blocked" id="card-rate">
                   <span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
-                  <span class="title">Add rate limiting</span>
-                  <span class="path">todo/add-rate-limiting.md</span>
+                  <span class="title">add-rate-limiting</span>
+                  <span class="path">.todoer/todos/add-rate-limiting.md</span>
                   <span class="chips"><span class="chip lab">auth</span><span class="chip st" data-k="blocked"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>blocked</span></span>
                 </article>
               </div>
@@ -1580,7 +1645,7 @@
           </div>
 
           <div class="mainline">
-            <span class="branch"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/></svg>main</span>
+            <span class="branch"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7"/></svg><span id="branch-name">main</span></span>
             <span class="track"><span class="dots" id="dots" aria-hidden="true"><i></i><i></i></span><span class="commit" id="commit"><b>83f9b44</b> <span class="msg">Plan the auth work</span></span></span>
           </div>
 
@@ -1589,40 +1654,39 @@
           </div>
         </div>
         <div class="legend">
-          <span><span class="who agent" style="background:#4f46e5;color:#fff">agent-1</span>an AI agent runs the command</span>
-          <span><span class="who you" style="background:#ffd84d;color:#2a2000">you</span>you run it, or ask your agent to</span>
+          <span><span class="who agent"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4"/><path d="M9.5 13v1.5M14.5 13v1.5"/></svg>agent 1</span>writes the code, submits and updates the pull request</span>
+          <span><span class="who agent two"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4"/><path d="M9.5 13v1.5M14.5 13v1.5"/></svg>agent 2</span>reviews the pull request with you and adds your comments</span>
+          <span><span class="who you">you</span>you run it, or ask an agent to. Agents run commands as you: todoer and git use your git email</span>
+          <span><span class="owner" aria-hidden="true"><span class="me">you</span><span class="bot"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4"/><path d="M9.5 13v1.5M14.5 13v1.5"/></svg></span></span>&nbsp; the todo is assigned to you, and agent 1 writes the code</span>
         </div>
       </section>
 
       <section class="block" id="files">
         <span class="kicker">// everything is a file</span>
         <h2>Nothing to host. <em>It is all in git.</em></h2>
-        <p class="intro">A todo is a markdown file with a <code>status</code> field in its front matter. Its path is its id. A pull request is a folder in <code>.todoer/prs/</code> on the main branch. A person and an agent can read every file, and git history keeps every change.</p>
+        <p class="intro">A todo is a file in <code>.todoer/todos/</code>. Its name is its id. A pull request is a folder in <code>.todoer/prs/</code>, committed on the branch that it goes into. There is no settings file. A person and an agent can read every file, and git history keeps every change.</p>
 
         <div class="explorer">
           <nav class="tree" aria-label="Files that todoer writes">
             <span class="dir">my-project/</span>
-            <button type="button" style="--d:1" data-file="cfg" aria-pressed="false">todoer.json</button>
-            <span class="dir" style="--d:1">todo/</span>
-            <button type="button" style="--d:2" data-file="todo1" aria-pressed="true">fix-the-login-crash.md</button>
-            <button type="button" style="--d:2" data-file="todo2" aria-pressed="false">add-rate-limiting.md</button>
             <span class="dir" style="--d:1">.todoer/</span>
+            <span class="dir" style="--d:2">todos/</span>
+            <button type="button" style="--d:3" data-file="todo1" aria-pressed="true">fix-the-login-crash.md</button>
+            <button type="button" style="--d:3" data-file="todo2" aria-pressed="false">add-rate-limiting.md</button>
             <span class="dir" style="--d:2">prs/fix-the-login-crash/</span>
             <button type="button" style="--d:3" data-file="prmd" aria-pressed="false">pr.md</button>
             <button type="button" style="--d:3" data-file="prpatch" aria-pressed="false">pr.patch</button>
             <button type="button" style="--d:3" data-file="review" aria-pressed="false">review.md</button>
-            <span class="dir" style="--d:2">teams/</span>
-            <button type="button" style="--d:3" data-file="team" aria-pressed="false">backend.md</button>
-            <button type="button" style="--d:2" data-file="owners" aria-pressed="false">codeowners</button>
+            <span class="dir" style="--d:2">labels/</span>
+            <button type="button" style="--d:3" data-file="rule" aria-pressed="false">auth.md</button>
+            <button type="button" style="--d:2" data-file="areas" aria-pressed="false">areas</button>
           </nav>
 
           <div class="viewer">
             <div class="fv" data-file="todo1">
-              <div class="viewer-head"><span class="fp">todo/fix-the-login-crash.md</span><p>A todo. <code>todoer claim</code> sets the status and the assignee. todoer changes only the fields that a command names.</p></div>
+              <div class="viewer-head"><span class="fp">.todoer/todos/fix-the-login-crash.md</span><p>A todo. The file name is its id and its title. <code>todoer claim</code> sets the assignee and commits the file, so you can push the claim at once. The front matter is optional.</p></div>
 <pre><span class="fm">---</span>
-<span class="k">title:</span> Fix the login crash
-<span class="k">status:</span> <span class="hl">in-progress</span>
-<span class="k">assignee:</span> agent-1@example.com
+<span class="k">assignee:</span> <span class="hl">you@example.com</span>
 <span class="k">labels:</span> [auth]
 <span class="fm">---</span>
 
@@ -1630,30 +1694,22 @@ Steps to reproduce: sign in with an expired token.
 The app stops after the third retry.</pre>
             </div>
             <div class="fv" data-file="todo2" hidden>
-              <div class="viewer-head"><span class="fp">todo/add-rate-limiting.md</span><p>This todo waits for another one. <code>todoer ls</code> shows it as <code>blocked</code> until the other todo is <code>done</code>.</p></div>
+              <div class="viewer-head"><span class="fp">.todoer/todos/add-rate-limiting.md</span><p>This todo waits for another one. <code>todoer ls</code> shows it as <code>blocked</code> while the other todo file exists. <code>todoer done</code> and <code>todoer pr merge</code> remove a todo file.</p></div>
 <pre><span class="fm">---</span>
-<span class="k">title:</span> Add rate limiting
-<span class="k">status:</span> todo
 <span class="k">labels:</span> [auth]
-<span class="k">dependsOn:</span> <span class="hl">[todo/fix-the-login-crash.md]</span>
+<span class="k">dependsOn:</span> <span class="hl">[fix-the-login-crash]</span>
 <span class="fm">---</span>
 
 Limit the sign-in attempts for each account.</pre>
             </div>
-            <div class="fv" data-file="cfg" hidden>
-              <div class="viewer-head"><span class="fp">todoer.json</span><p>The settings, at the project root. Every key is optional. The default main branch is <code>origin/HEAD</code>, else <code>main</code>, else <code>master</code>.</p></div>
-<pre>{
-  <span class="k">"mainBranch"</span>: "main"
-}</pre>
-            </div>
             <div class="fv" data-file="prmd" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.md</span><p>The pull request: title, author, branch, base and todos. <code>-m</code> of a later submit writes the <code>## Update</code> section.</p></div>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.md</span><p>The pull request. The folder name is its id and its title. <code>pr.md</code> holds the author, the branch of the work (<code>from</code>), the branch that it goes into (<code>into</code>), the base and the todos. <code>-m</code> of a later submit writes the <code>## Update</code> section.</p></div>
 <pre><span class="fm">---</span>
-<span class="k">title:</span> Fix the login crash
-<span class="k">author:</span> agent-1@example.com
-<span class="k">branch:</span> fix-login
+<span class="k">author:</span> you@example.com
+<span class="k">from:</span> fix-login
+<span class="k">into:</span> main
 <span class="k">base:</span> f9582bb76d212ae8cfec79eeb2ced593240cf464
-<span class="k">todos:</span> [todo/fix-the-login-crash.md]
+<span class="k">todos:</span> [fix-the-login-crash]
 <span class="fm">---</span>
 
 Use the retry constant.
@@ -1663,9 +1719,9 @@ Use the retry constant.
 Added the test.</pre>
             </div>
             <div class="fv" data-file="prpatch" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.patch</span><p>The <code>git format-patch</code> series of the latest submit. <code>todoer pr merge</code> applies it with <code>git am --3way</code>. Next to it, <code>pr.diff</code> holds the combined diff for the review.</p></div>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.patch</span><p>The latest submit as one squashed commit. <code>todoer pr merge</code> applies it on the current branch with <code>git am --3way</code>. Next to it, <code>pr.diff</code> holds the combined diff for the review.</p></div>
 <pre><span class="fm">From 5a49e712aa8c0b763a4057f2910c84ea08044048 Mon Sep 17 00:00:00 2001
-From: agent &lt;agent-1@example.com&gt;
+From: You &lt;you@example.com&gt;
 Subject: [PATCH] Fix the login crash</span>
 
 diff --git a/src/auth.rs b/src/auth.rs
@@ -1679,32 +1735,25 @@ diff --git a/src/auth.rs b/src/auth.rs
  }</pre>
             </div>
             <div class="fv" data-file="review" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/review.md</span><p>The review of the latest patch: the verdict and the comments. A comment that is not committed is a draft. <code>approve</code> and <code>request-changes</code> commit the file.</p></div>
-<pre><span class="fm">---</span>
-<span class="k">verdict:</span> <span class="hl">changes-requested</span>
-<span class="k">reviewer:</span> you@example.com
-<span class="fm">---</span>
-
-Close. One small thing.
-
-<span class="hd">### c1 `src/auth.rs:2` you@example.com</span>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/review.md</span><p>The review of the latest patch: only the comments. <code>pr comment</code> writes the file, and you commit it when the review is done. There is no verdict: a merge accepts the pull request.</p></div>
+<pre><span class="hd">### c1 `src/auth.rs:2` you@example.com</span>
 
 <span class="fm">&gt;     let retries = MAX_RETRIES;</span>
 
 Add a test for the retry path.</pre>
             </div>
-            <div class="fv" data-file="team" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/teams/backend.md</span><p>The members of a team, by git email. A member can be an agent.</p></div>
-<pre><span class="hd"># Backend</span>
-
-- you@example.com
-- agent-1@example.com</pre>
+            <div class="fv" data-file="rule" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/labels/auth.md</span><p>A label rule. The file name is the label. The text tells in plain words which todos must have the label. todoer does not read it: the agent reads the rules after <code>todoer add</code> and adds the labels.</p></div>
+<pre>Add this label to a todo that changes the login,
+the sessions or the tokens.
+Do not add it to a todo that only changes the docs.</pre>
             </div>
-            <div class="fv" data-file="owners" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/codeowners</span><p>The code owners, in the CODEOWNERS syntax. When the file is missing, todoer reads <code>.github/CODEOWNERS</code>. The last rule that matches wins.</p></div>
-<pre>*.rs      <span class="k">@backend</span>
-/docs/    <span class="k">@writers</span>
-src/old.rs  other@example.com</pre>
+            <div class="fv" data-file="areas" hidden>
+              <div class="viewer-head"><span class="fp">.todoer/areas</span><p>The areas of the code. The patterns use the gitignore rules. The last pattern that matches a path wins. <code>pr summary</code> shows how many files and lines each area changes. <code>-a security</code> shows the diff of these areas only. <code>-x e2e-tests,unit-tests</code> hides them.</p></div>
+<pre><span class="k">security:</span>    /src/api/auth
+<span class="k">tests:</span>       /tests
+<span class="k">e2e-tests:</span>   /tests/e2e
+<span class="k">unit-tests:</span>  *.test.js</pre>
             </div>
           </div>
         </div>
@@ -1720,19 +1769,20 @@ src/old.rs  other@example.com</pre>
             <div class="lane-head"><span>plan</span><span class="count">3</span></div>
             <div class="lane-cards">
               <div class="lane-card">
-                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A todo is a markdown file</h3>
-                <p><code>add</code> writes the file and prints its path. The text can come on stdin. <code>check</code> reports bad todos.</p>
-                <pre>todoer add -t "Fix the login crash" -p todo -l auth</pre>
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A todo is a file with a name</h3>
+                <p><code>add</code> writes <code>.todoer/todos/&lt;name&gt;.md</code>. The text can come on stdin. <code>done</code> removes the file. <code>check</code> reports bad todos.</p>
+                <pre>todoer add fix-the-login-crash -l auth</pre>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Dependencies, never a cycle</h3>
-                <p><code>dep add</code> refuses a cycle. <code>ls --ready</code> lists the todos that can start now, and <code>dep show</code> prints the tree.</p>
+                <p><code>dep add</code> refuses a cycle. A todo can wait for one todo or for all the todos of a label. <code>ls --available</code> lists the todos that can start now, and <code>dep show</code> prints the tree.</p>
+                <pre>todoer dep add new-login-page -l auth-backend-refactor</pre>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Labels show the progress</h3>
-                <p>A label groups related todos. <code>progress</code> lists the open ones in dependency order.</p>
+                <p>A label groups related todos. <code>progress</code> lists them in dependency order. A label rule tells the agent in plain words which todos get the label.</p>
                 <pre>$ todoer progress auth
-auth  1/2 done (50%)  [#-]</pre>
+auth  1/2 in progress (50%)  [#-]</pre>
               </div>
             </div>
           </div>
@@ -1740,12 +1790,12 @@ auth  1/2 done (50%)  [#-]</pre>
             <div class="lane-head"><span>work</span><span class="count">3</span></div>
             <div class="lane-cards">
               <div class="lane-card">
-                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A claim is a commit on main</h3>
-                <p>Every agent sees at once who works on a todo. A claim refuses a todo of another person or a blocked todo, and a second claim waits for the first.</p>
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Any branch, your commits</h3>
+                <p>todoer knows no main branch. <code>claim</code> commits the todo on your branch, so you can push it at once. Claim one todo, a list or a whole <code>--label</code>. A claim refuses a todo of another person or a blocked todo.</p>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Agents work in worktrees</h3>
-                <p><code>pr submit</code> takes the commits of the branch after the merge base. There is nothing to push and no hosting service.</p>
+                <p>One command for the agent: <code>pr submit --branch main</code> squashes every commit since the work started from <code>main</code> into one, and commits the pull request on <code>main</code>. There is nothing to push and no hosting service.</p>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>One command makes it a skill</h3>
@@ -1758,15 +1808,15 @@ auth  1/2 done (50%)  [#-]</pre>
             <div class="lane-cards">
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A pull request is a patch</h3>
-                <p>The review needs no branch. <code>pr merge</code> applies the patch on the main branch and sets the todos to <code>done</code>, in one commit.</p>
+                <p>The pull request lands on your branch, so you review and merge it there. <code>pr merge</code> applies the patch and removes the pull request and its todos. On a conflict, nothing changes.</p>
               </div>
               <div class="lane-card">
-                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>No merge with open comments</h3>
-                <p><code>pr merge</code> stops on a draft comment and on a sent comment. <code>pr submit --update</code> replaces the patch and removes the review.</p>
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A merge is the approval</h3>
+                <p>There is no approve and no verdict. A committed review asks for changes. <code>pr submit --update</code> replaces the patch and removes the review. <code>pr merge</code> stops while the review has a comment.</p>
               </div>
               <div class="lane-card">
-                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Code owners filter the review</h3>
-                <p>Teams and CODEOWNERS rules decide who owns a file. <code>--mine</code>, <code>--owner</code> and <code>--unowned</code> filter <code>summary</code>, <code>details</code> and <code>review</code>.</p>
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Code areas in the summary</h3>
+                <p>Name the parts of the code in <code>.todoer/areas</code>, such as <code>security</code> or <code>e2e-tests</code>. <code>pr summary</code> shows how many files and lines each area changes. <code>-a security</code> shows only these files. <code>-x unit-tests</code> hides the tests.</p>
               </div>
             </div>
           </div>
@@ -1777,7 +1827,7 @@ auth  1/2 done (50%)  [#-]</pre>
         <div>
           <span class="kicker">// review in the terminal</span>
           <h2>Comment on a line, a file, a folder <em>or the whole thing.</em></h2>
-          <p class="intro">Ask your agent to explain the patch and to add your comments. It runs <code>pr details</code> and <code>pr comment</code>. Or read it yourself with <code>todoer pr review &lt;slug&gt;</code>. Select a target:</p>
+          <p class="intro">Ask a second agent, not the one that wrote the code, to explain the patch and to add your comments. It runs <code>pr details</code> and <code>pr comment</code>. Or read it yourself with <code>todoer pr review &lt;pr&gt;</code>. When the review is done, commit <code>review.md</code>. Select a target:</p>
           <div class="targets" id="targets">
             <button type="button" data-t="src/auth.rs:2" aria-pressed="true"><code>src/auth.rs:2</code><span>line 2 of the new version</span></button>
             <button type="button" data-t="src/auth.rs:1-3" aria-pressed="false"><code>src/auth.rs:1-3</code><span>lines 1 to 3 of the new version</span></button>
@@ -1798,7 +1848,7 @@ auth  1/2 done (50%)  [#-]</pre>
               <div class="drow" data-new="1"><span class="n">1</span><span class="n">1</span><span class="s">|</span><span class="c">  fn login() {</span></div>
               <div class="drow r" data-old="2"><span class="n">2</span><span class="n"></span><span class="s">-</span><span class="c">    let retries = 3;</span></div>
               <div class="drow a" data-new="2"><span class="n"></span><span class="n">2</span><span class="s">+</span><span class="c">    let retries = MAX_RETRIES;</span></div>
-              <div class="dcomment"><b>[c1] (draft)</b>you@example.com: Add a test for the retry path.</div>
+              <div class="dcomment"><b>[c1]</b>you@example.com: Add a test for the retry path.</div>
               <div class="drow" data-new="3"><span class="n">3</span><span class="n">3</span><span class="s">|</span><span class="c">    connect(retries);</span></div>
               <div class="drow" data-new="4"><span class="n">4</span><span class="n">4</span><span class="s">|</span><span class="c">  }</span></div>
             </div>
@@ -1813,23 +1863,24 @@ auth  1/2 done (50%)  [#-]</pre>
 
       <section class="block start" id="start">
         <div>
-          <span class="kicker">// start</span>
-          <h2>From install <em>to the first merge.</em></h2>
-          <p class="intro">Run every command in a git project, in the main checkout or in any of its worktrees.</p>
+          <span class="kicker">// the workflow</span>
+          <h2>From a todo <em>to a merge.</em></h2>
+          <p class="intro">You plan and decide. Agents claim, write the code, submit and update. Every step is a commit on your branch, so you can push it at any time.</p>
 <pre class="shell"><span class="p">$ </span>cd ~/code/my-project
 <span class="p">$ </span>todoer skill --init
 <span class="c">wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
 wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
-<span class="p">$ </span>todoer add -t "Fix the login crash" -p todo -l auth "Steps to reproduce: ..."
-<span class="c">todo/fix-the-login-crash.md</span>
-<span class="p">$ </span>git add todo &amp;&amp; git commit -m "Plan the auth work"</pre>
+<span class="p">$ </span>todoer add fix-the-login-crash -l auth "Steps to reproduce: ..."
+<span class="c">.todoer/todos/fix-the-login-crash.md</span></pre>
+          <p class="aside">Step by step, with what to tell your agent: <a href="guide.html">read the guide</a>.</p>
         </div>
         <ol class="steps">
-          <li><strong>Hand the todo to an agent</strong>Ask it to work on <code>todo/fix-the-login-crash.md</code>. It runs <code>todoer claim</code>, makes a worktree, commits and runs <code>todoer pr submit</code>.</li>
-          <li><strong>Review with the agent</strong>Ask it to explain the patch and to add your comments. Or use <code>todoer pr review &lt;slug&gt;</code>.</li>
-          <li><strong>Send the review</strong><code>todoer pr request-changes &lt;slug&gt;</code> or <code>todoer pr approve &lt;slug&gt;</code>.</li>
-          <li><strong>The agent updates the patch</strong>It does what the comments ask and runs <code>todoer pr submit --update</code>. Review the new patch from the start.</li>
-          <li><strong>Merge</strong><code>todoer pr merge &lt;slug&gt;</code>. It stops while the review has comments.</li>
+          <li><strong>Claim</strong>Tell your agent: &ldquo;claim <code>fix-the-login-crash</code>&rdquo;, a list of todos, or a label. <code>todoer claim</code> assigns the todos to you and commits them on your branch. Push the commit when you want.</li>
+          <li><strong>Implement in a worktree</strong>&ldquo;Implement it in a worktree.&rdquo; The agent makes a new branch from your branch, writes the code and commits.</li>
+          <li><strong>Submit into your branch</strong>One command: <code>todoer pr submit --branch main</code>. It squashes every commit since the work started from <code>main</code> into one, and commits the pull request on <code>main</code>. Name any branch.</li>
+          <li><strong>Review</strong>Ask another agent to explain the patch and to add your comments with <code>todoer pr comment</code>. Then commit the review.</li>
+          <li><strong>Update</strong>Ask an agent to do the comments. It restores the patch in a new worktree, so the first branch can be gone. Then it runs <code>todoer pr submit --branch main -n &lt;pr&gt; --update</code>, which replaces the patch and removes the review.</li>
+          <li><strong>Merge</strong><code>todoer pr merge &lt;pr&gt;</code>. There is no approve: a merge accepts the pull request. It stops while the review has comments.</li>
         </ol>
       </section>
 
@@ -1853,6 +1904,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         <span><code class="name">todoer</code> &middot; MIT license &middot; pre-1.0</span>
         <a href="https://github.com/sobanieca/todoer" target="_blank"
           rel="noopener">GitHub</a>
+        <a href="guide.html">Guide</a>
         <a href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md"
           target="_blank" rel="noopener">Commands</a>
         <a href="https://github.com/sobanieca/todoer/blob/main/docs/data.md"
@@ -1880,7 +1932,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
       };
       var LOCK = '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
       var BUBBLE = '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
-      var CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+      var BOT = '<svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4"/><path d="M9.5 13v1.5M14.5 13v1.5"/></svg>';
       var timers = [];
 
       function later(fn, ms) {
@@ -1945,10 +1997,10 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         commitEl.innerHTML = "<b>" + hash + "</b> <span class=\"msg\"></span>";
         commitEl.querySelector(".msg").textContent = msg;
       }
-      function setProgress(done, total) {
-        var pct = Math.round((done / total) * 100);
+      function setProgress(active, total) {
+        var pct = Math.round((active / total) * 100);
         meter.style.width = pct + "%";
-        ptext.textContent = "auth " + done + "/" + total + " done (" + pct + "%)";
+        ptext.textContent = "auth " + active + "/" + total + " in progress (" + pct + "%)";
       }
 
       function line(cls, html) {
@@ -1963,98 +2015,91 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
       }
       function prompt(who) {
-        return '<span class="who ' + (who === "you" ? "you" : "agent") + '">' + who + '</span><span class="ps">$ </span>';
+        var label = who === "you" ? "you" : BOT + (who === "agent2" ? "agent 2" : "agent 1");
+        var cls = who === "you" ? "you" : who === "agent2" ? "agent two" : "agent";
+        return '<span class="who ' + cls + '">' + label + '</span><span class="ps">$ </span>';
       }
 
       var steps = [
         {
-          who: "agent-1",
-          cmd: "todoer claim todo/fix-the-login-crash.md",
-          out: ['claimed todo/fix-the-login-crash.md for agent-1@example.com on main'],
+          who: "agent1",
+          cmd: "todoer claim fix-the-login-crash",
+          out: ["claimed fix-the-login-crash for you@example.com"],
           apply: function () {
             move(cards.login, "progress");
-            setStatus(cards.login, "claimed", "agent-1");
+            cards.login.classList.add("owned");
+            setStatus(cards.login, "claimed", "claimed");
+            setProgress(1, 2);
             hot(cards.login);
-            addCommit("f9582bb", "todoer: claim todo/fix-the-login-crash.md", true);
+            addCommit("4c1d2e7", "todoer: claim fix-the-login-crash", true);
           }
         },
-        { note: "# agent-1 works in a git worktree on the branch fix-login, then commits" },
+        { note: "# agent 1 writes the code in a worktree, on a new branch from main, and commits" },
         {
-          who: "agent-1",
-          cmd: 'todoer pr submit -t "Fix the login crash" --todo todo/fix-the-login-crash.md',
-          out: ['<span class="ok">submitted</span> fix-the-login-crash: 1 commit, 2 files'],
+          who: "agent1",
+          cmd: "todoer pr submit --branch main --todo fix-the-login-crash",
+          out: [
+            '<span class="ok">submitted</span> fix-the-login-crash: 1 commit, 2 files, into main',
+            "committed on main"
+          ],
           apply: function () {
             move(cards.login, "pr");
-            setStatus(cards.login, "pending", "pending");
+            setStatus(cards.login, "pending", "no comments");
             hot(cards.login);
             addCommit("2a397f4", "todoer: submit fix-the-login-crash", true);
           }
         },
+        { note: "# you ask agent 2 to explain the pull request, and tell it your comments" },
         {
-          who: "you",
+          who: "agent2",
           cmd: 'todoer pr comment fix-the-login-crash src/auth.rs:2 "Add a test."',
-          out: ["added the draft comment c1 on src/auth.rs:2 in fix-the-login-crash"],
+          out: ["added the comment c1 on src/auth.rs:2 in fix-the-login-crash"],
           apply: function () {
-            setStatus(cards.login, "comment", BUBBLE + both("1 draft comment", "1 draft"));
+            setStatus(cards.login, "comment", BUBBLE + both("1 comment", "1 comment"));
             hot(cards.login);
           }
         },
         {
           who: "you",
-          cmd: "todoer pr request-changes fix-the-login-crash",
-          out: ['<span class="wn">changes requested</span> fix-the-login-crash: 1 comment'],
+          cmd: 'git add .todoer && git commit -m "Review fix-the-login-crash"',
+          out: [],
           apply: function () {
-            setStatus(cards.login, "changes", BUBBLE + both("changes requested", "changes"));
+            setStatus(cards.login, "changes", BUBBLE + both("review: 1 comment", "review"));
             hot(cards.login);
-            addCommit("a9dfe04", "todoer: request changes on fix-the-login-crash", true);
+            addCommit("a9dfe04", "Review fix-the-login-crash", false);
           }
         },
         {
-          who: "agent-1",
-          cmd: 'todoer pr submit --update -m "Added the test"',
+          who: "agent1",
+          cmd: 'todoer pr submit --branch main -n fix-the-login-crash --update -m "Added the test"',
           out: [
-            '<span class="ok">updated</span> fix-the-login-crash: 2 commits, 2 files',
-            "removed the review (changes-requested, 1 comment) - git history keeps it"
+            '<span class="ok">updated</span> fix-the-login-crash: 2 commits squashed to 1, 2 files, into main',
+            "removed the review (1 comment) - git history keeps it"
           ],
           apply: function () {
-            setStatus(cards.login, "pending", "pending");
+            setStatus(cards.login, "pending", "no comments");
             hot(cards.login);
             addCommit("8fe4f50", "todoer: update fix-the-login-crash", true);
           }
         },
         {
           who: "you",
-          cmd: "todoer pr approve fix-the-login-crash",
-          out: ['<span class="ok">approved</span> fix-the-login-crash: 0 comments'],
-          apply: function () {
-            setStatus(cards.login, "approved", CHECK + "approved");
-            hot(cards.login);
-            addCommit("c24c5a0", "todoer: approve fix-the-login-crash", true);
-          }
-        },
-        {
-          who: "you",
           cmd: "todoer pr merge fix-the-login-crash",
           out: [
-            '<span class="ok">merged</span> fix-the-login-crash on main: 2 commits',
-            "done: todo/fix-the-login-crash.md"
+            '<span class="ok">merged</span> fix-the-login-crash into main',
+            "done: fix-the-login-crash"
           ],
           apply: function () {
-            addCommit("b6e00dc", "Fix the login crash", false);
-            later(function () {
-              addCommit("0a26764", "Add a test", false);
-            }, 180);
-            later(function () {
-              addCommit("03667af", "todoer: merge fix-the-login-crash", true);
-            }, 360);
+            addCommit("03667af", "Fix the login crash", false);
             move(cards.login, "done");
+            cards.login.classList.remove("owned");
             cards.login.classList.add("is-done");
             setStatus(cards.login, "done", "done");
-            setProgress(1, 2);
+            setProgress(0, 1);
             later(function () {
               flip(function () {
                 cards.rate.classList.remove("is-blocked");
-                setStatus(cards.rate, "ready", "ready");
+                setStatus(cards.rate, "available", "available");
                 body("todo").insertBefore(cards.rate, body("todo").firstChild);
               });
               hot(cards.rate);
@@ -2068,9 +2113,9 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         todo.appendChild(cards.login);
         todo.appendChild(cards.docs);
         todo.appendChild(cards.rate);
-        cards.login.classList.remove("is-done", "hot");
+        cards.login.classList.remove("is-done", "hot", "owned");
         cards.rate.classList.add("is-blocked");
-        setStatus(cards.login, "ready", "ready");
+        setStatus(cards.login, "available", "available");
         setStatus(cards.rate, "blocked", LOCK + "blocked");
         counts();
         setProgress(0, 2);
@@ -2078,9 +2123,9 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         commitEl.innerHTML = '<b>83f9b44</b> <span class="msg">Plan the auth work</span>';
         term.innerHTML = "";
         line("out", '<span class="who you">you</span><span class="ps">$ </span>todoer ls');
-        line("out", "ready        todo/fix-the-login-crash.md  Fix the login crash");
-        line("out", "ready        todo/write-the-api-docs.md   Write the API docs");
-        line("out", "blocked      todo/add-rate-limiting.md    Add rate limiting    waits for todo/fix-the-login-crash.md");
+        line("out", "available    fix-the-login-crash");
+        line("out", "available    write-the-api-docs");
+        line("out", "blocked      add-rate-limiting    waits for fix-the-login-crash");
       }
 
       function runStep(i) {
@@ -2095,7 +2140,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
                 runStep(0);
               }, 1400);
             }, 550);
-          }, 4200);
+          }, 6000);
           return;
         }
         var s = steps[i];
@@ -2103,7 +2148,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
           line("note", esc(s.note));
           later(function () {
             runStep(i + 1);
-          }, 1300);
+          }, 2400);
           return;
         }
         var el = line("cmd", prompt(s.who) + '<span class="typed caret"></span>');
@@ -2112,8 +2157,8 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         (function type() {
           if (n <= s.cmd.length) {
             typed.textContent = s.cmd.slice(0, n);
-            n += 1 + (Math.random() < 0.3 ? 1 : 0);
-            later(type, 26 + Math.random() * 30);
+            n += 1;
+            later(type, 45 + Math.random() * 40);
           } else {
             typed.textContent = s.cmd;
             later(function () {
@@ -2121,13 +2166,13 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
               s.out.forEach(function (o, k) {
                 later(function () {
                   line("out", o);
-                }, k * 160);
+                }, k * 280);
               });
               s.apply();
               later(function () {
                 runStep(i + 1);
-              }, 1900);
-            }, 380);
+              }, 3200);
+            }, 650);
           }
         })();
       }
@@ -2150,11 +2195,9 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
           clearTimeout(t);
         });
         timers = [];
-        addCommit("0a26764", "Add a test", false);
-        addCommit("03667af", "todoer: merge fix-the-login-crash", true);
         cards.login.classList.remove("hot");
         cards.rate.classList.remove("is-blocked");
-        setStatus(cards.rate, "ready", "ready");
+        setStatus(cards.rate, "available", "available");
         body("todo").insertBefore(cards.rate, body("todo").firstChild);
         counts();
       }

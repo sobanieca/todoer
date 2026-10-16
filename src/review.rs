@@ -1,9 +1,6 @@
-//! The review file `review.md`: the verdict, the summary and the comments on the latest patch.
+//! The review file `review.md`: the comments on the latest patch.
 
 use crate::diff;
-use crate::frontmatter::Document;
-
-pub const VERDICTS: [&str; 3] = ["pending", "changes-requested", "approved"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Target {
@@ -190,9 +187,6 @@ pub struct Comment {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Review {
-    pub verdict: String,
-    pub reviewer: Option<String>,
-    pub summary: String,
     pub comments: Vec<Comment>,
 }
 
@@ -218,24 +212,12 @@ pub fn is_comment_id(id: &str) -> bool {
 impl Review {
     pub fn empty() -> Review {
         Review {
-            verdict: "pending".to_string(),
-            reviewer: None,
-            summary: String::new(),
             comments: Vec::new(),
         }
     }
 
     pub fn parse(text: &str) -> Review {
-        let doc = Document::parse(text);
         let mut review = Review::empty();
-        if let Some(verdict) = doc
-            .text("verdict")
-            .filter(|v| VERDICTS.contains(&v.as_str()))
-        {
-            review.verdict = verdict;
-        }
-        review.reviewer = doc.text("reviewer");
-        let mut summary = Vec::new();
         let mut lines: Vec<String> = Vec::new();
         let mut current: Option<Comment> = None;
         let finish =
@@ -246,7 +228,7 @@ impl Review {
                 }
                 lines.clear();
             };
-        for line in doc.body.lines() {
+        for line in text.replace("\r\n", "\n").lines() {
             if let Some((id, target, author)) = parse_header(line) {
                 finish(&mut current, &mut lines, &mut review.comments);
                 current = Some(Comment {
@@ -259,7 +241,7 @@ impl Review {
                 continue;
             }
             match current.as_mut() {
-                None => summary.push(line),
+                None => {}
                 Some(comment)
                     if lines.iter().all(|entry| entry.trim().is_empty())
                         && matches!(comment.target, Target::Line { .. })
@@ -278,20 +260,11 @@ impl Review {
             }
         }
         finish(&mut current, &mut lines, &mut review.comments);
-        review.summary = summary.join("\n").trim().to_string();
         review
     }
 
     pub fn render(&self) -> String {
-        let mut doc = Document::new();
-        doc.set("verdict", &self.verdict);
-        if let Some(reviewer) = &self.reviewer {
-            doc.set("reviewer", reviewer);
-        }
         let mut parts = Vec::new();
-        if !self.summary.trim().is_empty() {
-            parts.push(self.summary.trim().to_string());
-        }
         for comment in &self.comments {
             let place = match &comment.target {
                 Target::Pr => "pr".to_string(),
@@ -318,12 +291,11 @@ impl Review {
             }
             parts.push(block.join("\n"));
         }
-        doc.body = if parts.is_empty() {
+        if parts.is_empty() {
             String::new()
         } else {
-            format!("\n{}\n", parts.join("\n\n"))
-        };
-        doc.render()
+            format!("{}\n", parts.join("\n\n"))
+        }
     }
 
     pub fn next_id(&self) -> String {
@@ -424,9 +396,6 @@ mod tests {
     #[test]
     fn round_trips_a_review() {
         let review = Review {
-            verdict: "changes-requested".into(),
-            reviewer: Some("me@x.io".into()),
-            summary: "Close.".into(),
             comments: vec![
                 Comment {
                     id: "c1".into(),
@@ -446,7 +415,7 @@ mod tests {
         };
         let text = review.render();
         assert!(text.contains("### c1 `src/a.rs:4-5` me@x.io\n\n> let a = 1;\n>\n\nUse a constant.\n\\### not a header"));
-        assert!(text.contains("### c2 pr me@x.io"));
+        assert!(text.contains("### c2 pr me@x.io\n"));
         assert_eq!(Review::parse(&text), review);
         assert_eq!(review.next_id(), "c3");
     }

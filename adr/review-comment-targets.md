@@ -18,8 +18,8 @@ target for the whole pull request.**
 - A file target or a folder target must be in the pull request or in its base.
 - A line comment keeps the text of its lines, so an agent sees it without the diff.
 - The review is one file, `review.md`, in markdown. See `the-review-is-for-the-latest-patch`.
-- A new comment is a draft: a change in the review file that is not committed. `approve` and
-  `request-changes` commit the review file, so each review is one commit.
+- `pr comment` writes the review file and does not commit it. The person commits it when the
+  review is done, so each review is one commit. See `a-merge-is-the-approval`.
 
 ## Consequences
 

@@ -5,14 +5,23 @@ Website: https://sobanieca.github.io/todoer/
 todoer keeps the todos and the pull requests of a git project as plain files. AI agents and people
 claim todos, work in git worktrees, and review the pull requests on the command line.
 
-- One binary. No database, no server, no account.
-- A todo is a markdown file with a `status` field in its front matter. Its path is its id.
-- A claim is a commit on the main branch, so every agent sees at once who works on a todo.
-- A pull request is a patch file in `.todoer/prs/` on the main branch. You review it in the
-  terminal: comment on a line, a range of lines, a file, a folder or the whole pull request.
-- A merge applies the patch on the main branch with `git am`, and sets the todos to `done`.
-- Labels show the progress of related todos. Todos depend on each other, with no cycle.
-- Code owners and teams filter the files of a review.
+- One binary. No database, no server, no account, no settings.
+- A todo is a file `.todoer/todos/<name>.md`. The name is its id. The file exists while the work is
+  open.
+- todoer works on any branch, also a feature branch. `claim` commits the todo on the current
+  branch, so you can push it. The other todo commands do not commit.
+- A pull request is a patch in `.todoer/prs/`, committed on the branch that it goes into. You review
+  it in the terminal: comment on a line, a range of lines, a file, a folder or the whole pull
+  request.
+- A pull request is one commit: a submit squashes the commits of the work. A merge applies this
+  commit on the current branch with `git am`. The same commit removes the pull request and its
+  todos.
+- Labels show the progress of related todos. Todos depend on each other, with no cycle. A todo can
+  also depend on a label: it waits for every todo of the label.
+- Label rules tell in plain words which todos must have a label. The agent reads them and adds the
+  labels to a new todo.
+- Code areas show how much of a pull request changes each part of the code.
+- In a folder of projects, such as `~/code`, `todoer ls` lists the todos of every project.
 
 todoer is not released yet. Until version `1.0.0`, any part of it can change.
 
@@ -45,32 +54,30 @@ Or build it: `cargo build --release`, then copy `target/release/todoer` to a fol
 ```sh
 cd ~/code/my-project
 todoer skill --init        # writes the todoer skill for Claude Code, Codex and Cursor
-todoer add -t "Fix the login crash" -p todo -l auth "Steps to reproduce: ..."
-git add todo && git commit -m "Plan the auth work"
+todoer add fix-login-crash -l auth "Steps to reproduce: ..."
+git add .todoer && git commit -m "Plan the auth work"
 ```
 
-1. Ask an agent to work on `todo/fix-the-login-crash.md`. The agent runs `todoer claim`, makes a
-   worktree, commits, and runs `todoer pr submit`.
-2. Review with an agent: ask it to explain the patch and to add your comments on lines of the
-   change. The agent runs `todoer pr details <slug>` and `todoer pr comment <slug> <target>`.
-   Or review in the terminal: `todoer pr review <slug>`.
-3. Send the review: `todoer pr request-changes <slug>` or `todoer pr approve <slug>`.
-4. The agent does what the comments ask and runs `todoer pr submit --update`. This replaces the
-   patch and removes the review. Review the new patch from the start.
-5. Merge: `todoer pr merge <slug>`. It stops while the review has comments.
+1. **Claim.** Ask an agent to claim `fix-login-crash`, a list of todos or a label. It runs
+   `todoer claim`, which sets you as the assignee and commits the todo on your branch. Push it when
+   you want.
+2. **Implement.** Ask the agent to implement the todos in a worktree. It makes a new branch from
+   your branch, and commits.
+3. **Submit.** The agent runs `todoer pr submit --branch <your branch> --todo fix-login-crash`. The
+   pull request has all the commits since the work started from your branch, squashed into one
+   commit. todoer commits it on your branch.
+4. **Review.** Ask an agent to explain the patch and to add your comments with
+   `todoer pr comment`. Or review in the terminal with `todoer pr review <pr>`. Then commit
+   `review.md`.
+5. **Update.** Ask an agent to do the comments. It makes a new worktree at the `base` of the pull
+   request, restores the commit with `git am`, does the comments and runs
+   `todoer pr submit --branch <your branch> -n <pr> --update`. This replaces the patch and removes
+   the review. The first work branch is not necessary after a submit.
+6. **Merge.** On your branch, run `todoer pr merge <pr>`. There is no approve step: a merge accepts
+   the pull request. It stops while the review has comments.
 
-The commands are in [`docs/cli.md`](docs/cli.md). The files that todoer writes are in
-[`docs/data.md`](docs/data.md).
-
-## Settings
-
-`todoer.json` at the project root holds the settings. Every key is optional.
-
-```json
-{
-  "mainBranch": "main"
-}
-```
+The guide is at https://sobanieca.github.io/todoer/guide.html. The commands are in
+[`docs/cli.md`](docs/cli.md). The files that todoer writes are in [`docs/data.md`](docs/data.md).
 
 ## Work on todoer
 
@@ -80,7 +87,7 @@ The commands are in [`docs/cli.md`](docs/cli.md). The files that todoer writes a
 | `cargo verify`           | runs `cargo fmt --check`, clippy and all the tests |
 | `cargo update-snapshots` | accepts new CLI output in `tests/snapshots`        |
 
-The decisions are in [`adr/`](adr/). The planned work is in [`todo/`](todo/). The rules for a
+The decisions are in [`adr/`](adr/). The planned work is in [`.todoer/todos/`](.todoer/todos/). The rules for a
 change are in [`AGENTS.md`](AGENTS.md).
 
 ## License

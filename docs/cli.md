@@ -1,113 +1,231 @@
 # todoer - Commands
 
-Run every command in a git project, in the main checkout or in any of its worktrees. todoer finds
-the main checkout from `git worktree list`. A path argument is relative to the current folder.
-todoer prints paths relative to the repository root.
+Run every command in a git project, in any checkout and on any branch. todoer reads and writes the
+`.todoer/` folder of the current checkout. It does not know a main branch, and it has no settings
+file.
+
+For the workflow from a new todo to a merge, read the [guide](https://sobanieca.github.io/todoer/guide.html).
 
 ## Todos
 
-| Command                                                      | Does                                            |
-| ------------------------------------------------------------ | ----------------------------------------------- |
-| `todoer ls [--all] [--mine] [--label l] [--ready] [--json]`  | lists the active todos                          |
-| `todoer add -t <title> [-p dir] [-l label] [-d path] [text]` | adds a todo and prints its path                 |
-| `todoer done <path>...`                                      | sets `status: done`                             |
-| `todoer mv <old> <new>`                                      | moves a todo and changes each `dependsOn` to it |
-| `todoer check`                                               | reports bad todos and exits with `1`            |
-| `todoer claim <path> [--force]`                              | claims a todo, with a commit on the main branch |
-| `todoer unclaim <path>`                                      | frees a todo, with a commit on the main branch  |
+| Command                                         | Does                                                      |
+| ----------------------------------------------- | --------------------------------------------------------- |
+| `todoer ls [--mine] [--label l] [--available] [--json]` | lists the todos                                       |
+| `todoer add <name> [-l label] [-d name] [-D label] [text]` | adds the todo `.todoer/todos/<name>.md`        |
+| `todoer done <name>...`                         | removes the todos, and removes them from each `dependsOn` |
+| `todoer mv <old> <new>`                         | renames a todo and changes each `dependsOn` to it         |
+| `todoer check`                                  | reports bad todos and bad label rules, and exits with `1` |
+| `todoer claim <name>... [--label l] [--force] [--no-commit]` | sets the assignee to me and commits the todos |
+| `todoer unclaim <name>... [--no-commit]`        | removes the assignee and commits the todos                |
 
-- todoer finds the todos with `git ls-files -co --exclude-standard '*.md'`. A todo has a `status`
-  field in its front matter. todoer skips `.todoer/`.
-- `ls` shows the state of each todo: `in-progress`, `ready`, `blocked` (it waits for a todo that is
-  not `done` or `dropped`), `done` or `dropped`. `--all` adds the done and the dropped todos.
-- `add` writes `<slug of the title>.md` in the folder of `-p`, or in the current folder. Give `-l`
-  and `-d` once for each label and each dependency. When there is no text and stdin is not a
-  terminal, `add` reads the text from stdin.
-- `check` reports an unknown status, a bad label, a bad assignee, a missing `dependsOn` path and a
-  cycle. Every command that reads all the todos prints the same problems as warnings.
-- Todo commands change the files of the current checkout. Commit them as other files.
+- A todo command changes the files of the current checkout, on any branch. Only `claim` and
+  `unclaim` commit. The other todo commands do not commit. You decide when to commit those changes.
+- A command that takes a name also takes the path of the todo file, for example
+  `.todoer/todos/fix-login.md`.
+- `ls` shows the state of each todo: `in-progress` (it has an assignee), `available` or `blocked` (it
+  waits for a todo that still exists, or for a label that another todo still has).
+- `add` and `mv` refuse a bad name and print a correct name. Give `-l`, `-d` and `-D` once for each
+  label and each dependency. `-D label` (`--depends-on-label`) makes the todo wait for each todo of
+  the label. When there is no text and stdin is not a terminal, `add` reads the text from
+  stdin.
+- When a label rule exists, `add` prints `check the label rules: todoer labels` after the path.
+- There is no `dropped` status. To drop a todo, run `todoer done`. git history keeps the file.
+- `check` reports a bad name, a bad label, a bad assignee, a missing `dependsOn` name, a label in
+  `dependsOnLabels` that no other todo has, and a cycle.
+  Every command that reads all the todos prints the same problems as warnings. `check` also
+  reports a label rule file with a bad name, and an empty rule.
+- `claim` sets `assignee` to your git email in each todo, and commits the todo files on the current
+  branch. Push the commit, so that other people see the claim. todoer never pushes.
+- `claim` takes many names. `--label l` adds each todo of the label that has no assignee. A todo
+  of the label that another person has stays as it is.
+- `claim` refuses a todo of another person and a todo that waits for another todo. A todo that
+  waits only for todos of the same claim is not refused. `--force` skips the dependency check.
+- `unclaim` removes the assignee and commits the todo files.
+- With `--no-commit`, the changes stay in the working tree. When the checkout has other changes
+  that are not committed, `claim` and `unclaim` do not commit. They write the files and print a
+  warning. Then commit the todo files yourself.
 
-### Claims
+### Many projects
 
-`claim` sets `status: in-progress` and `assignee: <git config user.email>`. `unclaim` sets
-`status: todo` and removes the assignee. Both change the todo in the main checkout, and commit only
-that file on the main branch.
-
-- The main checkout must have the main branch checked out.
-- `claim` refuses a todo of another person, a `done` or `dropped` todo, a todo that waits for
-  another todo (`--force` skips this check), and a todo with uncommitted changes in the main
-  checkout.
-- A second claim waits for the first one, then reads the todo again.
+Outside a git repository, `todoer ls` lists the todos of each folder in the current folder that is
+a git project with `.todoer/todos/`. For example, run it in `~/code`. todoer reads the todos of the
+branch that is checked out in each project, and tells this in a warning for each project.
+`ls --json` adds `project` and `branch` to each todo.
 
 ## Dependencies and labels
 
 | Command                            | Does                                                          |
 | ---------------------------------- | ------------------------------------------------------------- |
-| `todoer dep add <path> <path>...`  | the first todo depends on each other todo                     |
-| `todoer dep rm <path> <path>...`   | removes those dependencies                                    |
-| `todoer dep show <path>`           | prints the tree of what the todo waits for, and what needs it |
-| `todoer label add <path> <label>`  | adds a label to a todo                                        |
-| `todoer label rm <path> <label>`   | removes a label from a todo                                   |
-| `todoer labels [--json]`           | lists the labels with the number of todos                     |
+| `todoer dep add <name> [<name>...] [-l label]...` | the first todo depends on each other todo, and on each label |
+| `todoer dep rm <name> [<name>...] [-l label]...`  | removes those dependencies                     |
+| `todoer dep show <name>`           | prints the tree of what the todo waits for, and what needs it |
+| `todoer label add <name> <label>`  | adds a label to a todo                                        |
+| `todoer label rm <name> <label>`   | removes a label from a todo                                   |
+| `todoer labels [--json]`           | lists the labels with the number of todos and their rules     |
+| `todoer labels rm <label>`         | removes the label from each todo, and removes its rule        |
+| `todoer labels mv <old> <new>`     | renames the label in each todo, and renames its rule          |
+| `todoer labels rule <label> [text]` | writes the rule of the label; the text can come on stdin     |
+| `todoer labels rule <label> --rm`  | removes the rule of the label                                 |
 | `todoer progress [label] [--json]` | prints the progress of a label, or one line for each label    |
 
 - todoer refuses a dependency that makes a cycle. There is no depth limit.
 - `dep show` prints a todo that two paths reach once. The second path says `see above`.
-- A label matches `^[a-z0-9-]+$`. A label exists while one todo has it.
-- `progress` counts the `done` todos of all the todos with the label, but not the `dropped` todos.
-  It lists the open todos in dependency order: in progress, ready and blocked. A blocking todo
-  without the label shows `(outside label)`.
+
+### Depend on a label
+
+A todo can wait for a group of todos: all the todos of a label.
+
+```bash
+todoer add new-login-page -D auth-backend-refactor
+todoer dep add new-login-page -l auth-backend-refactor
+todoer ls
+```
+
+```
+available    move-tokens
+blocked      new-login-page  waits for label auth-backend-refactor
+```
+
+- The todo gets the field `dependsOnLabels`. It waits while another todo has the label. A todo that
+  gets the label later also blocks it.
+- `add -D` and `dep add -l` refuse a label that no other todo has.
+- `label add`, `labels mv` and `add` refuse a change that makes a cycle through a label.
+- When no other todo has the label, `done`, `pr merge`, `label rm` and `labels rm` remove the label
+  from `dependsOnLabels`. `labels mv` renames the label in `dependsOnLabels` too.
+- `dep show` prints `label <label>` with the todos of the label below it. `ls --json` lists the
+  labels in `dependsOnLabels`, and the todos that the todo waits for in `waitsFor`.
+- `claim` lets you claim the todo together with the todos of the label.
+- A label matches `^[a-z0-9-]+$`. A label exists while one todo has it, or while it has a rule.
+- `labels rm` removes the label from each todo that has it, and removes its rule. Then the label
+  does not exist.
+- `labels mv` renames the label in each todo that has it, and renames its rule. When a todo
+  already has the new label, it keeps one. When the two labels have a rule, `labels mv` stops and
+  changes nothing. Then remove one rule first.
+- `labels rm`, `labels mv` and `labels rule` do not commit.
+
+### Label rules
+
+A label rule tells in plain words which todos must have a label. It is the file
+`.todoer/labels/<label>.md`. todoer does not read the words. The agent reads the rules after
+`todoer add`, and adds the labels.
+
+```bash
+todoer labels rule auth "Add this label to a todo that changes the login, the sessions or the tokens."
+todoer labels
+```
+
+```
+auth  2 todos
+  Add this label to a todo that changes the login, the sessions or the tokens.
+docs  0 todos
+```
+
+- `labels` prints the rule of a label below the label, with an indent. A label without a rule
+  shows only the count. A rule can exist before a todo has its label: then the count is `0 todos`.
+- `labels --json` adds the field `rule` to each label: the text of the rule, or `null`.
+- `labels rule <label> [text]` writes the rule, or replaces it. When there is no text and stdin is
+  not a terminal, it reads the text from stdin.
+- `progress` shows how many todos of the label have an assignee. The total is the number of todos
+  with the label that exist now. It lists the todos in dependency order: in progress, available and
+  blocked. A blocking todo without the label shows `(outside label)`.
 
 ## Pull requests
 
-| Command                                           | Does                                                 |
-| ------------------------------------------------- | ---------------------------------------------------- |
-| `todoer pr submit [-t title] [-m text] [--todo path]... [--update]` | sends the commits of the branch as the pull request |
-| `todoer pr ls [--mine] [--json]`                  | lists the open pull requests                         |
-| `todoer pr merge <pr>`                            | applies the patch on the main branch                 |
-| `todoer pr close <pr>`                            | closes a pull request without a merge                |
+| Command                                                                                   | Does                                                  |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `todoer pr submit --branch b [-n name] [-m text] [--todo name]... [--update] [--no-commit]` | writes the commits of the branch as a pull request on `b` |
+| `todoer pr ls [--json]`                                                                   | lists the pull requests of the current checkout       |
+| `todoer pr merge <pr> [--no-commit]`                                                      | applies the patch on the current branch               |
+| `todoer pr close <pr> [--no-commit]`                                                      | removes a pull request without a merge                |
 
-A `<pr>` is the slug or the path of the folder.
+A `<pr>` is the name or the path of the folder.
 
-- `submit` runs in a worktree, on a branch that is not the main branch, with no uncommitted
-  change. It takes the commits after the merge base with the main branch. `--todo` names a todo
-  of the pull request.
+- `submit` takes the commits of the current branch after the merge base with `--branch`. This is
+  all the work since the current branch started from `--branch`. Commits that change only
+  `.todoer/` do not count.
+- `submit` squashes these commits into one commit in `pr.patch`. The author is you. For one
+  commit, the message does not change. For more commits, the subject of the first commit is the
+  subject, and the body lists the subject of each commit.
+- `submit` writes `.todoer/prs/<name>/` on the branch `--branch`, and commits it there. The
+  pull request lands on the branch that it goes into, so the review and the merge happen there.
+- When `--branch` is checked out in a checkout, for example your main checkout, `submit` writes
+  the folder in that checkout and commits it there. When that checkout has other changes that are
+  not committed, `submit` does not commit. It writes the folder and prints a warning. Then commit
+  the folder yourself.
+- When `--branch` is not checked out, `submit` commits the folder on the branch directly. Then
+  `--no-commit` is not possible.
+- `--branch` is necessary on each submit. It must be a local branch.
+- `submit` stops when the current checkout has changes that are not committed. Commit the work
+  first.
+- The name of the folder is the id and the title of the pull request, as for a todo. `-n` gives
+  the name. Without `-n`, todoer makes the name from the subject of the first commit. A later
+  submit from the same branch cannot change the name.
+- `--todo` names a todo of the pull request. Give it once for each todo. `pr merge` removes these
+  todos.
 - A pull request keeps only the patch of its latest submit. A second submit from the same branch
   replaces the patch and the diff, and removes the review. git history keeps the old patch and the
   old review.
 - When the review has comments, a second submit stops. Do what the comments ask, then run
-  `todoer pr submit --update`. todoer does not check the comments.
-- A second submit also stops when a reviewer has draft comments. The reviewer must send the review
-  first.
+  `todoer pr submit --branch <b> --update`. todoer does not check the comments.
+- A pull request does not need the branch of the work after the submit. You can remove that
+  branch and its worktree.
+- To continue a pull request on a new branch, start the branch at the `base` of `pr.md`, then
+  run `git am .todoer/prs/<pr>/pr.patch` from the checkout of `--branch`. This restores the one
+  commit of the pull request. The patch always applies
+  on `base`. Then update with `-n <pr> --update`, and the pull request continues from the new
+  branch. todoer does not make the branch or the worktree.
 - `-m` on a second submit writes the `## Update` section of `pr.md`. Tell the reviewer what you
   changed there.
-- `merge` needs the main branch in the main checkout and no staged change. It stops when the
-  review has a comment, also a draft. A comment is resolved when `pr submit --update` removes the
-  review. It runs
-  `git am --3way`. When the patch does not apply, the main branch does not change. Then todoer sets
-  `status: done` on the todos of the pull request and removes the folder, in one commit.
-- `close` removes the folder in one commit. The todos keep their status.
-- `ls --mine` lists the pull requests that change a file that I own.
+- `ls` lists the pull requests of the current checkout, with the number of comments, the branch of
+  the work and the branch that the pull request goes into.
+
+### Merge
+
+There is no approve step. To accept a pull request, merge it. Run `todoer pr merge <pr>` in the
+checkout of the branch that the pull request goes into. `submit` already put the folder there.
+
+- `merge` stops when the review has a comment. A comment is resolved when
+  `pr submit --update` removes the review.
+- When the changes of the patch are already on the current branch, for example after a git merge
+  of the branch, `merge` does not apply the patch again.
+- Else `merge` runs `git am --3way`. A base that moved is not a problem while the patch applies.
+  When the patch does not apply, the branch does not change. Ask the author to rebase the branch
+  and run `todoer pr submit --update`.
+- Then `merge` removes the folder and the todos of the pull request, and removes the todos from
+  each `dependsOn`. It adds these changes to the commit of the patch, so the merge is one commit.
+  When the changes were already on the branch, `merge` commits this as `todoer: merge <pr>`.
+- With `--no-commit`, `merge` first tries the patch on a copy of the git index. When it applies,
+  `merge` runs `git apply --3way`. The changes stay in the working tree and in the index.
+- `close` removes the folder. The todos stay.
+
+### Commits
+
+`claim`, `unclaim`, `submit`, `merge` and `close` commit only their own files, with
+`git commit -- <paths>`. `submit` commits on the branch `--branch`. The other commands commit on
+the current branch. With `--no-commit`, the changes stay in the working tree. When the checkout has
+other changes that are not committed, todoer does not commit. It writes the files and prints a
+warning with the other changes. Then commit the files yourself. Files that git does not track do
+not count.
 
 ## Review
 
 | Command                                                    | Does                                       |
 | ---------------------------------------------------------- | ------------------------------------------ |
-| `todoer pr summary <pr>`                                   | the files, the owners, the comment counts  |
-| `todoer pr details <pr> [file...] [--context N] [--lines 40-80]` | the diff with line numbers and comments |
-| `todoer pr comment <pr> [target] [text]`                   | adds a draft comment                       |
-| `todoer pr approve <pr> [-m text]`                         | sets the verdict and commits the review    |
-| `todoer pr request-changes <pr> [-m text]`                 | sets the verdict and commits the review    |
-| `todoer pr review <pr>`                                    | the summary and all the details            |
+| `todoer pr summary <pr> [-a area,...] [-x area,...]`       | the files, the comment counts, the areas   |
+| `todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a area,...] [-x area,...]` | the diff with line numbers and comments |
+| `todoer pr comment <pr> [target] [text]`                   | adds a comment to `review.md`              |
+| `todoer pr review <pr> [-a area,...] [-x area,...]`        | the summary and all the details            |
 
-- `summary`, `details` and `review` take `--owner <team|email>`, `--mine` or `--unowned`.
+- Review in the checkout of the branch that the pull request goes into. The folder is there.
 - `details` shows the old and the new line numbers. `--context N` reads the old file from the base
   and shows `N` more lines around each change. `--lines 40-80` shows only these new lines.
 - Colors and `$PAGER` are on only when the output is a terminal. `NO_COLOR` turns colors off.
 - The review, `review.md`, is for the latest patch only. `todoer pr submit --update` removes it,
   and the next review starts with no comments.
-- A new comment is a draft: a change in `review.md` that is not committed. `approve` and
-  `request-changes` commit the review file, so each review is one commit.
+- `comment` writes `review.md` and does not commit it. When the review is done, commit it:
+  `git add .todoer/prs/<pr>/review.md && git commit -m "Review <pr>" -- .todoer/prs/<pr>/review.md`.
+- There is no verdict. To accept the pull request, merge it. To ask for changes, commit the review
+  and ask an agent to do the comments and run `pr submit --update`.
 - With one argument after `<pr>`, `comment` uses it as a target when it names a line, a file or a
   folder of the diff. Then it reads the text from stdin. Else the argument is the text of a comment
   on the whole pull request.
@@ -130,16 +248,36 @@ comments.
 ### Review with an agent
 
 Review a pull request by talking with an agent. The agent reads the patch with `pr details`, and
-adds the comments that you ask for with `pr comment`. Then it sends the review when you ask.
+adds the comments that you ask for with `pr comment`. Then commit the review.
 
-## Code owners
+## Code areas
 
-- `.todoer/teams/<team>.md` lists the members of a team by git email. A member can be an agent.
-- `.todoer/codeowners` uses the CODEOWNERS syntax. When it is missing, todoer reads
-  `.github/CODEOWNERS`. The patterns use the gitignore rules. The last rule that matches wins.
-- `@team` names a team. An email names a person.
-- "Me" is `git config user.email` and each team that has this email.
-- For a renamed file, the owners of the old and the new path count.
+An area is a named part of the code. `.todoer/areas` gives each area its paths:
+
+```
+# the last pattern that matches a path wins
+security: /src/api/auth
+tests: /tests
+e2e-tests: /tests/e2e
+unit-tests: *.test.js *_test.go
+docs: /docs/ *.md
+```
+
+- Each line is `<area>: <pattern>...`. Lines that start with `#` are comments.
+- The patterns use the gitignore rules. The last pattern that matches a path gives its area.
+  Thus put the general areas first and the specific areas after them.
+- A pattern with no `/` matches the file name in each folder. `unit-tests: *.test.js` puts
+  `src/api/auth/login.test.js` in `unit-tests`, because its line comes after `security`.
+- `pr summary` and `pr review` show each area that the pull request changes, with the number of
+  files and lines. `(no area)` counts the files that no pattern matches.
+- For a renamed file, the areas of the old and the new path count.
+- When `.todoer/areas` is missing, the summary shows no areas.
+- `-a security,e2e-tests` (`--area`) shows only the files in these areas.
+- `-x e2e-tests,unit-tests` (`--exclude`) hides the files in these areas. The files with no area
+  stay.
+- `summary`, `details` and `review` take `-a` and `-x`. You can use the two together. Give the
+  names with commas, or give the option more than one time. An unknown name is an error.
+- A renamed file stays when one of its areas is shown.
 
 ## Other commands
 
@@ -151,11 +289,3 @@ adds the comments that you ask for with `pr comment`. Then it sends the review w
 | `todoer version`          | prints the version                                 |
 
 `skill --init` writes `.claude/skills/todoer/SKILL.md` and `.agents/skills/todoer/SKILL.md`.
-
-## Settings - `todoer.json`
-
-| Key            | Value                                   | Default                                      |
-| -------------- | --------------------------------------- | -------------------------------------------- |
-| `mainBranch`   | the branch for the commits of todoer    | `origin/HEAD`, else `main`, else `master`    |
-
-An unknown key or a bad value stops every command, and the message names the key.

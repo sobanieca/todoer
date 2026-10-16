@@ -1,234 +1,324 @@
-//! `ls`, `add`, `done`, `mv`, `check`, `claim` and `unclaim`.
+//! `ls`, `add`, `done`, `mv`, `check`, `claim` and `unclaim`. Only `claim` and `unclaim` commit.
 
 use crate::args::{Args, Flag, option, switch};
 use crate::colors;
+use crate::commands::report;
 use crate::frontmatter::Document;
 use crate::git;
 use crate::json::{self, Value};
-use crate::project::{Project, read_file, write_file};
+use crate::project::{CommitPlan, Lock, Project, write_file};
+use crate::rules::Rules;
 use crate::terminal;
-use crate::todos::{Todo, Todos, check_label, read_todo, slug};
+use crate::todos::{
+    Todo, Todos, check_label, check_name, name_of, read_todo, remove_dependency_on,
+    remove_label_dependencies_without_todos, remove_todo, todo_file, todo_path, todos_dir,
+};
+use std::path::{Path, PathBuf};
 
 pub const LS_FLAGS: &[Flag] = &[
-    switch("all", Some('a')),
     switch("mine", None),
     option("label", Some('l')),
-    switch("ready", None),
+    switch("available", None),
     switch("json", None),
 ];
 
 pub fn state_color(state: &str, text: &str) -> String {
     match state {
         "in-progress" => colors::yellow(text),
-        "ready" => colors::green(text),
+        "available" => colors::green(text),
         "blocked" => colors::red(text),
         _ => colors::gray(text),
     }
 }
 
 fn state_rank(state: &str) -> usize {
-    ["in-progress", "ready", "blocked", "done", "dropped"]
+    ["in-progress", "available", "blocked"]
         .iter()
         .position(|entry| *entry == state)
-        .unwrap_or(5)
+        .unwrap_or(3)
 }
 
+struct Listing<'a> {
+    todos: &'a Todos,
+    rows: Vec<(&'a Todo, &'static str)>,
+}
+
+fn select<'a>(todos: &'a Todos, args: &Args, me: Option<&str>) -> Listing<'a> {
+    let label = args.value("label");
+    let mut rows: Vec<(&Todo, &'static str)> = todos
+        .items
+        .iter()
+        .map(|todo| (todo, todos.state(todo)))
+        .filter(|(_, state)| !args.has("available") || *state == "available")
+        .filter(|(todo, _)| me.is_none() || todo.assignee.as_deref() == me)
+        .filter(|(todo, _)| label.is_none_or(|label| todo.labels.iter().any(|l| l == label)))
+        .collect();
+    rows.sort_by(|a, b| {
+        state_rank(a.1)
+            .cmp(&state_rank(b.1))
+            .then_with(|| a.0.name.cmp(&b.0.name))
+    });
+    Listing { todos, rows }
+}
+
+fn print_rows(listing: &Listing, indent: &str) {
+    let width = listing
+        .rows
+        .iter()
+        .map(|(todo, _)| todo.name.len())
+        .max()
+        .unwrap_or(0);
+    for (todo, state) in &listing.rows {
+        let extra = match *state {
+            "blocked" => format!("waits for {}", listing.todos.waits_summary(todo).join(", ")),
+            _ => todo.assignee.clone().unwrap_or_default(),
+        };
+        let line = format!(
+            "{indent}{}  {}  {}",
+            state_color(state, &colors::pad(state, 11)),
+            colors::pad(&todo.name, width),
+            colors::gray(&extra)
+        );
+        println!("{}", line.trim_end());
+    }
+}
+
+pub fn todo_json(todos: &Todos, todo: &Todo, state: &str) -> Vec<(&'static str, Value)> {
+    vec![
+        ("name", Value::str(&todo.name)),
+        ("state", Value::str(state)),
+        ("assignee", Value::opt(todo.assignee.as_deref())),
+        ("labels", Value::strings(&todo.labels)),
+        ("dependsOn", Value::strings(&todo.depends_on)),
+        ("dependsOnLabels", Value::strings(&todo.depends_on_labels)),
+        ("waitsFor", Value::strings(&todos.waits_for(todo))),
+    ]
+}
+
+const LS_USAGE: &str = "todoer ls [--mine] [--label l] [--available] [--json]";
+
 pub fn ls(args: &Args) -> Result<(), String> {
-    args.expect_positional(
-        0,
-        0,
-        "todoer ls [--all] [--mine] [--label l] [--ready] [--json]",
-    )?;
-    let project = Project::find()?;
-    let todos = Todos::load(&project.current)?;
+    args.expect_positional(0, 0, LS_USAGE)?;
+    let cwd = std::env::current_dir()
+        .map_err(|error| format!("cannot read the current folder: {error}"))?;
+    if git::toplevel(&cwd).is_none() {
+        return ls_projects(args, &cwd);
+    }
+    let project = Project::find_from(&cwd)?;
+    let todos = Todos::load(&project.root)?;
     todos.print_warnings();
     let me = if args.has("mine") {
         Some(project.me()?)
     } else {
         None
     };
-    let label = args.value("label");
-    let mut rows: Vec<(&Todo, &'static str)> = todos
-        .items
-        .iter()
-        .map(|todo| (todo, todos.state(todo)))
-        .filter(|(todo, _)| args.has("all") || !todo.is_closed())
-        .filter(|(_, state)| !args.has("ready") || *state == "ready")
-        .filter(|(todo, _)| me.is_none() || todo.assignee == me)
-        .filter(|(todo, _)| label.is_none_or(|label| todo.labels.iter().any(|l| l == label)))
-        .collect();
-    rows.sort_by(|a, b| {
-        state_rank(a.1)
-            .cmp(&state_rank(b.1))
-            .then_with(|| a.0.path.cmp(&b.0.path))
-    });
+    let listing = select(&todos, args, me.as_deref());
     if args.has("json") {
-        let items = rows
+        let items = listing
+            .rows
             .iter()
-            .map(|(todo, state)| todo_json(&todos, todo, state))
+            .map(|(todo, state)| Value::object(todo_json(&todos, todo, state)))
             .collect();
         println!("{}", json::stringify(&Value::Array(items)));
         return Ok(());
     }
-    if rows.is_empty() {
+    if listing.rows.is_empty() {
         println!("no todos");
         return Ok(());
     }
-    let path_width = rows
-        .iter()
-        .map(|(todo, _)| todo.path.len())
-        .max()
-        .unwrap_or(0);
-    let title_width = rows
-        .iter()
-        .map(|(todo, _)| todo.title.chars().count())
-        .max()
-        .unwrap_or(0)
-        .min(50);
-    for (todo, state) in rows {
-        let extra = match state {
-            "blocked" => format!("waits for {}", todos.waits_for(todo).join(", ")),
-            _ => todo.assignee.clone().unwrap_or_default(),
-        };
-        let line = format!(
-            "{}  {}  {}  {}",
-            state_color(state, &colors::pad(state, 11)),
-            colors::pad(&todo.path, path_width),
-            colors::pad(&todo.title, title_width),
-            colors::gray(&extra)
+    print_rows(&listing, "");
+    Ok(())
+}
+
+fn projects_in(folder: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return Vec::new();
+    };
+    let mut found: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.join(".git").exists() && todos_dir(path).is_dir())
+        .collect();
+    found.sort();
+    found
+}
+
+fn ls_projects(args: &Args, folder: &Path) -> Result<(), String> {
+    let projects = projects_in(folder);
+    if projects.is_empty() {
+        return Err(
+            "this folder is not in a git repository, and no folder in it has todos - run todoer in a project"
+                .to_string(),
         );
-        println!("{}", line.trim_end());
+    }
+    let mut items = Vec::new();
+    let mut printed = false;
+    for root in &projects {
+        let name = root
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let branch = Project::find_from(root)?.branch_name()?;
+        crate::logger::warn(&format!(
+            "{name}: todoer read the todos of the checked-out branch {branch}"
+        ));
+        let todos = Todos::load(root)?;
+        for problem in todos.problems() {
+            crate::logger::warn(&format!("{name}: {problem}"));
+        }
+        let me = if args.has("mine") {
+            Some(git::user_email(root)?)
+        } else {
+            None
+        };
+        let listing = select(&todos, args, me.as_deref());
+        if args.has("json") {
+            for (todo, state) in &listing.rows {
+                let mut fields = vec![
+                    ("project", Value::str(&name)),
+                    ("branch", Value::str(&branch)),
+                ];
+                fields.extend(todo_json(&todos, todo, state));
+                items.push(Value::object(fields));
+            }
+            continue;
+        }
+        if listing.rows.is_empty() {
+            continue;
+        }
+        if printed {
+            println!();
+        }
+        println!("{}  {}", colors::bold(&name), colors::gray(&branch));
+        print_rows(&listing, "  ");
+        printed = true;
+    }
+    if args.has("json") {
+        println!("{}", json::stringify(&Value::Array(items)));
+    } else if !printed {
+        println!("no todos");
     }
     Ok(())
 }
 
-pub fn todo_json(todos: &Todos, todo: &Todo, state: &str) -> Value {
-    Value::object(vec![
-        ("path", Value::str(&todo.path)),
-        ("title", Value::str(&todo.title)),
-        ("status", Value::str(&todo.status)),
-        ("state", Value::str(state)),
-        ("assignee", Value::opt(todo.assignee.as_deref())),
-        ("labels", Value::strings(&todo.labels)),
-        ("dependsOn", Value::strings(&todo.depends_on)),
-        ("waitsFor", Value::strings(&todos.waits_for(todo))),
-    ])
-}
-
 pub const ADD_FLAGS: &[Flag] = &[
-    option("title", Some('t')),
-    option("path", Some('p')),
     option("label", Some('l')),
     option("depends-on", Some('d')),
+    option("depends-on-label", Some('D')),
 ];
 
 pub fn add(args: &Args) -> Result<(), String> {
-    let project = Project::find()?;
-    let title = args
-        .value("title")
-        .map(|title| title.split_whitespace().collect::<Vec<_>>().join(" "))
-        .filter(|title| !title.is_empty())
-        .ok_or("a todo needs a title - use todoer add -t \"<title>\" [text]")?;
+    let usage = "todoer add <name> [-l label]... [-d name]... [-D label]... [text]";
+    let Some(name) = args.positional.first() else {
+        return Err(format!("a todo needs a name - use {usage}"));
+    };
+    check_name(name)?;
     let labels = args.values("label");
     for label in &labels {
         check_label(label)?;
     }
-    let folder = match args.value("path") {
-        Some(dir) => project.relative(dir.trim_end_matches('/')).map(Some)?,
-        None => project.relative(".").ok(),
-    };
+    let project = Project::find()?;
+    let _lock = project.lock()?;
+    let todos = Todos::load(&project.root)?;
+    if todos.get(name).is_some() || todo_file(&project.root, name).exists() {
+        return Err(format!("the todo {name} exists - pick another name"));
+    }
     let mut depends_on = Vec::new();
-    let deps = args.values("depends-on");
-    if !deps.is_empty() {
-        let todos = Todos::load(&project.current)?;
-        for dep in deps {
-            let path = project.relative(&dep)?;
-            todos.require(&path)?;
-            depends_on.push(path);
+    for dep in args.values("depends-on") {
+        let dep = name_of(&dep);
+        todos.require(&dep)?;
+        depends_on.push(dep);
+    }
+    let depends_on_labels = args.values("depends-on-label");
+    for label in &depends_on_labels {
+        check_label(label)?;
+        if todos.labeled_except(label, name).is_empty() {
+            return Err(format!("no todo has the label {label} - run todoer labels"));
         }
     }
-    let text = if !args.positional.is_empty() {
-        args.positional.join(" ")
+    let text = if args.positional.len() > 1 {
+        args.positional[1..].join(" ")
     } else {
         terminal::read_stdin_if_piped()?
     };
-    let name = match slug(&title, 60) {
-        name if name.is_empty() => "todo".to_string(),
-        name => name,
-    };
-    let prefix = folder.map(|dir| format!("{dir}/")).unwrap_or_default();
-    let mut path = format!("{prefix}{name}.md");
-    let mut number = 2;
-    while project.current.join(&path).exists() {
-        path = format!("{prefix}{name}-{number}.md");
-        number += 1;
-    }
     let mut doc = Document::new();
-    doc.set_text("title", &title);
-    doc.set("status", "todo");
     doc.set_list("labels", &labels);
     doc.set_list("dependsOn", &depends_on);
+    doc.set_list("dependsOnLabels", &depends_on_labels);
     let text = text.trim();
     doc.body = if text.is_empty() {
         String::new()
     } else {
         format!("\n{text}\n")
     };
-    write_file(&project.current.join(&path), &doc.render())?;
-    println!("{path}");
+    todos
+        .with(Todo::from_document(name, doc.clone()))
+        .check_no_cycle(std::slice::from_ref(name))?;
+    write_file(&todo_file(&project.root, name), &doc.render())?;
+    println!("{}", todo_path(name));
+    if !Rules::load(&project.root)?.items.is_empty() {
+        println!("check the label rules: todoer labels");
+    }
     Ok(())
 }
 
 pub fn done(args: &Args) -> Result<(), String> {
     if args.positional.is_empty() {
-        return Err("use: todoer done <path> [<path> ...]".into());
+        return Err("use: todoer done <name> [<name> ...]".into());
     }
     let project = Project::find()?;
-    for argument in &args.positional {
-        let path = project.relative(argument)?;
-        let mut todo = read_todo(&project.current, &path)?;
-        todo.set_status("done");
-        todo.save(&project.current)?;
-        println!("done: {path}");
+    let _lock = project.lock()?;
+    let names: Vec<String> = args.positional.iter().map(|arg| name_of(arg)).collect();
+    let todos = Todos::load(&project.root)?;
+    for name in &names {
+        todos.require(name)?;
     }
+    for name in &names {
+        remove_todo(&project.root, name)?;
+        println!("done: {name}");
+    }
+    let mut todos = Todos::load(&project.root)?;
+    for name in &names {
+        for changed in remove_dependency_on(&project.root, &todos, name)? {
+            println!("removed {name} from dependsOn in {changed}");
+        }
+        todos = Todos::load(&project.root)?;
+    }
+    print_removed_labels(&remove_label_dependencies_without_todos(
+        &project.root,
+        &todos,
+    )?);
     Ok(())
+}
+
+pub fn print_removed_labels(removed: &[(String, String)]) {
+    for (name, label) in removed {
+        println!("removed {label} from dependsOnLabels in {name}: no other todo has the label");
+    }
 }
 
 pub fn mv(args: &Args) -> Result<(), String> {
     args.expect_positional(2, 2, "todoer mv <old> <new>")?;
     let project = Project::find()?;
-    let root = &project.current;
-    let old = project.relative(&args.positional[0])?;
-    let mut new = project.relative(&args.positional[1])?;
-    if args.positional[1].ends_with('/') || root.join(&new).is_dir() {
-        let name = old.rsplit('/').next().unwrap_or(&old);
-        new = format!("{new}/{name}");
-    }
-    if !new.ends_with(".md") {
-        return Err(format!("{new} must end with .md"));
-    }
+    let root = &project.root;
+    let old = name_of(&args.positional[0]);
+    let new = args.positional[1].clone();
+    check_name(&new)?;
+    let _lock = project.lock()?;
     let todos = Todos::load(root)?;
     todos.require(&old)?;
-    if root.join(&new).exists() {
-        return Err(format!("{new} exists - pick another path"));
+    if todo_file(root, &new).exists() {
+        return Err(format!("the todo {new} exists - pick another name"));
     }
-    if let Some(parent) = root.join(&new).parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|error| format!("cannot make {}: {error}", parent.display()))?;
-    }
-    if git::is_tracked(root, &old)? {
-        git::check(root, &["mv", "--", &old, &new])?;
-    } else {
-        std::fs::rename(root.join(&old), root.join(&new))
-            .map_err(|error| format!("cannot move {old}: {error}"))?;
-    }
-    println!("moved {old} -> {new}");
+    std::fs::rename(todo_file(root, &old), todo_file(root, &new))
+        .map_err(|error| format!("cannot rename {old}: {error}"))?;
+    println!("renamed {old} -> {new}");
     for todo in &todos.items {
         if !todo.depends_on.contains(&old) {
             continue;
         }
-        let path = if todo.path == old { &new } else { &todo.path };
-        let mut changed = read_todo(root, path)?;
+        let name = if todo.name == old { &new } else { &todo.name };
+        let mut changed = read_todo(root, name)?;
         let deps = changed
             .depends_on
             .iter()
@@ -242,7 +332,7 @@ pub fn mv(args: &Args) -> Result<(), String> {
             .collect();
         changed.set_depends_on(deps);
         changed.save(root)?;
-        println!("updated dependsOn in {path}");
+        println!("updated dependsOn in {name}");
     }
     Ok(())
 }
@@ -250,125 +340,164 @@ pub fn mv(args: &Args) -> Result<(), String> {
 pub fn check(args: &Args) -> Result<(), String> {
     args.expect_positional(0, 0, "todoer check")?;
     let project = Project::find()?;
-    let todos = Todos::load(&project.current)?;
-    let problems = todos.problems();
+    let todos = Todos::load(&project.root)?;
+    let rules = Rules::load(&project.root)?;
+    let mut problems = todos.problems();
+    problems.extend_from_slice(rules.problems());
     for problem in &problems {
         println!("{problem}");
     }
+    let checked = format!(
+        "{} todos and {} label rule{}",
+        todos.items.len(),
+        rules.items.len(),
+        if rules.items.len() == 1 { "" } else { "s" }
+    );
     if problems.is_empty() {
-        println!("{} todos, no problems", todos.items.len());
+        println!("{checked}, no problems");
         Ok(())
     } else {
         Err(format!(
-            "{} problem{} in {} todos",
+            "{} problem{} in {checked}",
             problems.len(),
-            if problems.len() == 1 { "" } else { "s" },
-            todos.items.len()
+            if problems.len() == 1 { "" } else { "s" }
         ))
     }
 }
 
-pub const CLAIM_FLAGS: &[Flag] = &[switch("force", None)];
+pub const CLAIM_FLAGS: &[Flag] = &[
+    option("label", Some('l')),
+    switch("force", None),
+    switch("no-commit", None),
+];
+const CLAIM_USAGE: &str = "todoer claim <name>... [--label l] [--force] [--no-commit]";
 
-fn main_checkout_todo(project: &Project, path: &str) -> Result<(Todo, String), String> {
-    let root = &project.root;
-    if git::is_tracked(root, path)? && git::has_changes(root, path)? {
-        return Err(format!(
-            "{path} has uncommitted changes in the main checkout {} - commit or discard them first",
-            root.display()
-        ));
-    }
-    if !root.join(path).is_file() {
-        return Err(format!(
-            "there is no todo {path} in the main checkout {} - commit it on {} first",
-            root.display(),
-            project.main_branch
-        ));
-    }
-    let original = read_file(&root.join(path))?;
-    Ok((read_todo(root, path)?, original))
-}
-
-fn commit_todo(
+fn commit_todos(
     project: &Project,
-    lock: &crate::project::Lock,
-    todo: &Todo,
-    original: &str,
-    message: &str,
+    lock: &Lock,
+    plan: &CommitPlan,
+    action: &str,
+    names: &[String],
 ) -> Result<(), String> {
-    todo.save(&project.root)?;
-    let result = project.commit_on_main(lock, message, std::slice::from_ref(&todo.path));
-    if result.is_err() {
-        let _ = write_file(&project.root.join(&todo.path), original);
+    if plan.commit {
+        let paths: Vec<String> = names.iter().map(|name| todo_path(name)).collect();
+        project.commit(
+            lock,
+            &format!("todoer: {action} {}", names.join(", ")),
+            &paths,
+        )?;
     }
-    result
+    report(plan);
+    Ok(())
 }
 
 pub fn claim(args: &Args) -> Result<(), String> {
-    args.expect_positional(1, 1, "todoer claim <path> [--force]")?;
+    let label = args.value("label");
+    if args.positional.is_empty() && label.is_none() {
+        return Err(format!("name a todo or a label - use {CLAIM_USAGE}"));
+    }
     let project = Project::find()?;
-    let path = project.relative(&args.positional[0])?;
     let me = project.me()?;
     let lock = project.lock()?;
-    project.require_main_checkout_on_main()?;
-    let (mut todo, original) = main_checkout_todo(&project, &path)?;
-    match (todo.status.as_str(), todo.assignee.as_deref()) {
-        ("in-progress", Some(assignee)) if assignee == me => {
-            println!("{path} is already claimed by you");
-            return Ok(());
+    let todos = Todos::load(&project.root)?;
+    let mut names: Vec<String> = Vec::new();
+    for argument in &args.positional {
+        let name = name_of(argument);
+        todos.require(&name)?;
+        if !names.contains(&name) {
+            names.push(name);
         }
-        ("in-progress", Some(assignee)) => {
+    }
+    if let Some(label) = label {
+        let labeled: Vec<&Todo> = todos
+            .items
+            .iter()
+            .filter(|todo| todo.labels.iter().any(|entry| entry == label))
+            .collect();
+        if labeled.is_empty() {
+            return Err(format!("no todo has the label {label} - run todoer labels"));
+        }
+        for todo in labeled {
+            match todo.assignee.as_deref() {
+                Some(assignee) if assignee != me => {
+                    println!("skipped {}: claimed by {assignee}", todo.name);
+                }
+                _ if names.contains(&todo.name) => {}
+                _ => names.push(todo.name.clone()),
+            }
+        }
+    }
+    let mut claimed = Vec::new();
+    for name in &names {
+        let todo = todos.require(name)?;
+        match todo.assignee.as_deref() {
+            Some(assignee) if assignee == me => {
+                println!("{name} is already claimed by you");
+                continue;
+            }
+            Some(assignee) => {
+                return Err(format!(
+                    "{name} is claimed by {assignee} - pick another todo, or ask {assignee} to run todoer unclaim"
+                ));
+            }
+            None => {}
+        }
+        let waits: Vec<String> = todos
+            .waits_for(todo)
+            .into_iter()
+            .filter(|other| !names.contains(other))
+            .collect();
+        if !waits.is_empty() && !args.has("force") {
             return Err(format!(
-                "{path} is claimed by {assignee} - pick another todo, or ask {assignee} to run todoer unclaim"
+                "{name} waits for {} - claim a todo that is not blocked, claim it together with the todos that it waits for, or use --force",
+                waits.join(", ")
             ));
         }
-        ("done" | "dropped", _) => return Err(format!("{path} is {}", todo.status)),
-        _ => {}
+        claimed.push(todo.clone());
     }
-    let todos = Todos::load(&project.root)?;
-    let waits = todos.waits_for(&todo);
-    if !waits.is_empty() && !args.has("force") {
-        return Err(format!(
-            "{path} waits for {} - claim a todo that is ready, or use --force",
-            waits.join(", ")
-        ));
+    if claimed.is_empty() {
+        return Ok(());
     }
-    todo.set_status("in-progress");
-    todo.set_assignee(Some(&me));
-    commit_todo(
-        &project,
-        &lock,
-        &todo,
-        &original,
-        &format!("todoer: claim {path}"),
-    )?;
-    println!("claimed {path} for {me} on {}", project.main_branch);
-    Ok(())
+    let paths: Vec<String> = claimed.iter().map(|todo| todo_path(&todo.name)).collect();
+    let plan = project.plan_commit(args.has("no-commit"), &paths)?;
+    let mut done = Vec::new();
+    for mut todo in claimed {
+        todo.set_assignee(Some(&me));
+        todo.save(&project.root)?;
+        println!("claimed {} for {me}", todo.name);
+        done.push(todo.name);
+    }
+    commit_todos(&project, &lock, &plan, "claim", &done)
 }
 
+pub const UNCLAIM_FLAGS: &[Flag] = &[switch("no-commit", None)];
+
 pub fn unclaim(args: &Args) -> Result<(), String> {
-    args.expect_positional(1, 1, "todoer unclaim <path>")?;
-    let project = Project::find()?;
-    let path = project.relative(&args.positional[0])?;
-    let lock = project.lock()?;
-    project.require_main_checkout_on_main()?;
-    let (mut todo, original) = main_checkout_todo(&project, &path)?;
-    if todo.status != "in-progress" {
-        return Err(format!(
-            "{path} is not claimed - its status is {}",
-            todo.status
-        ));
+    if args.positional.is_empty() {
+        return Err("use: todoer unclaim <name>... [--no-commit]".into());
     }
-    let previous = todo.assignee.clone().unwrap_or_else(|| "nobody".into());
-    todo.set_status("todo");
-    todo.set_assignee(None);
-    commit_todo(
-        &project,
-        &lock,
-        &todo,
-        &original,
-        &format!("todoer: unclaim {path}"),
-    )?;
-    println!("unclaimed {path} (was {previous})");
-    Ok(())
+    let project = Project::find()?;
+    let lock = project.lock()?;
+    let mut todos = Vec::new();
+    for argument in &args.positional {
+        let name = name_of(argument);
+        let todo = read_todo(&project.root, &name)?;
+        if todo.assignee.is_none() {
+            return Err(format!("{name} is not claimed"));
+        }
+        if !todos.iter().any(|other: &Todo| other.name == name) {
+            todos.push(todo);
+        }
+    }
+    let paths: Vec<String> = todos.iter().map(|todo| todo_path(&todo.name)).collect();
+    let plan = project.plan_commit(args.has("no-commit"), &paths)?;
+    let mut done = Vec::new();
+    for mut todo in todos {
+        let previous = todo.assignee.clone().unwrap_or_default();
+        todo.set_assignee(None);
+        todo.save(&project.root)?;
+        println!("unclaimed {} (was {previous})", todo.name);
+        done.push(todo.name);
+    }
+    commit_todos(&project, &lock, &plan, "unclaim", &done)
 }

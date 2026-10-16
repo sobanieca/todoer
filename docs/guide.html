@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>todoer guide</title>
+    <meta name="description"
+      content="How to use todoer: add todos, let an agent claim and implement them in a worktree, submit a pull request into your branch, review it, update it and merge it.">
+    <link rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+    <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f4ee;
+      --surface: #fffdf8;
+      --surface-2: #f1eee5;
+      --ink: #1c1a17;
+      --muted: #645f57;
+      --line: #e3ded2;
+      --line-strong: #d3ccbc;
+      --accent: #4f46e5;
+      --accent-ink: #3b33c4;
+      --accent-soft: #e7e5fb;
+      --marker: #ffd84d;
+      --marker-soft: #fff2bd;
+      --marker-ink: #7a5a00;
+      --done: #15803d;
+      --done-soft: #dcf2e2;
+      --warn: #b45309;
+      --warn-soft: #fbeedb;
+      --block: #b4413c;
+      --block-soft: #f8e3e1;
+      --code-bg: #efebe1;
+      --dot: rgba(28, 26, 23, 0.075);
+      --shadow: 0 1px 0 rgba(28, 26, 23, 0.04), 0 8px 24px -12px rgba(28, 26, 23, 0.18);
+      --term-bg: #1d1c24;
+      --term-ink: #e9e7f2;
+      --term-muted: #9b98ab;
+      --term-line: #2e2d38;
+      --term-ok: #6ee7a0;
+      --term-warn: #f6b86b;
+      --sans: "Geist", "Segoe UI", system-ui, sans-serif;
+      --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+      --serif: "Instrument Serif", Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #111115;
+        --surface: #19191f;
+        --surface-2: #202028;
+        --ink: #ecebe6;
+        --muted: #a3a09a;
+        --line: #2a2a33;
+        --line-strong: #383843;
+        --accent: #9d97ff;
+        --accent-ink: #bdb9ff;
+        --accent-soft: #27254a;
+        --marker: #e5bb2c;
+        --marker-soft: #3a3115;
+        --marker-ink: #f3d36b;
+        --done: #4ade80;
+        --done-soft: #12301f;
+        --warn: #f0a24b;
+        --warn-soft: #3a2a12;
+        --block: #f08a84;
+        --block-soft: #3a1c1b;
+        --code-bg: #1f1f27;
+        --dot: rgba(255, 255, 255, 0.055);
+        --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+        --term-bg: #0c0c10;
+        --term-ink: #e6e5ee;
+        --term-muted: #8d8a9c;
+        --term-line: #24242c;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #111115;
+      --surface: #19191f;
+      --surface-2: #202028;
+      --ink: #ecebe6;
+      --muted: #a3a09a;
+      --line: #2a2a33;
+      --line-strong: #383843;
+      --accent: #9d97ff;
+      --accent-ink: #bdb9ff;
+      --accent-soft: #27254a;
+      --marker: #e5bb2c;
+      --marker-soft: #3a3115;
+      --marker-ink: #f3d36b;
+      --done: #4ade80;
+      --done-soft: #12301f;
+      --warn: #f0a24b;
+      --warn-soft: #3a2a12;
+      --block: #f08a84;
+      --block-soft: #3a1c1b;
+      --code-bg: #1f1f27;
+      --dot: rgba(255, 255, 255, 0.055);
+      --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+      --term-bg: #0c0c10;
+      --term-ink: #e6e5ee;
+      --term-muted: #8d8a9c;
+      --term-line: #24242c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+    html {
+      -webkit-text-size-adjust: 100%;
+      scroll-padding-top: 20px;
+    }
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      background-image: radial-gradient(var(--dot) 1px, transparent 1.4px);
+      background-size: 22px 22px;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    code,
+    pre {
+      font-family: var(--mono);
+    }
+    a {
+      color: var(--accent-ink);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+    h1,
+    h2,
+    h3 {
+      text-wrap: balance;
+      line-height: 1.15;
+      margin: 0;
+    }
+    p {
+      margin: 0 0 12px;
+    }
+    p code,
+    li code,
+    td code {
+      font-size: 0.84em;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 5px;
+      overflow-wrap: anywhere;
+    }
+    .wrap {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding-inline: 20px;
+    }
+    @media (max-width: 560px) {
+      .wrap {
+        padding-inline: 16px;
+      }
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-block: 22px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 20px;
+      color: var(--ink);
+    }
+    .brand:hover {
+      text-decoration: none;
+    }
+    .brand .mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+      transform: rotate(-4deg);
+    }
+    .brand .mark svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .nav a {
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--ink);
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+    }
+    .nav a:hover {
+      text-decoration: none;
+      border-color: var(--accent);
+    }
+    @media (max-width: 560px) {
+      .nav {
+        gap: 6px;
+      }
+      .nav a {
+        font-size: 14px;
+        padding: 6px 10px;
+      }
+      .nav .wide {
+        display: none;
+      }
+    }
+
+    .head {
+      padding-block: 30px 10px;
+      max-width: 760px;
+    }
+    .kicker {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent-ink);
+      margin-bottom: 12px;
+      display: block;
+    }
+    .head h1 {
+      font-size: clamp(34px, 5.6vw, 56px);
+      font-weight: 600;
+      letter-spacing: -0.035em;
+    }
+    .head h1 em,
+    .doc h2 em {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-style: italic;
+      letter-spacing: -0.01em;
+    }
+    .head .lead {
+      margin-top: 18px;
+      font-size: 19px;
+      color: var(--muted);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 48px;
+      align-items: start;
+      padding-top: 30px;
+    }
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+      }
+    }
+    .toc {
+      position: sticky;
+      top: 20px;
+      font-size: 14.5px;
+      border-left: 2px solid var(--line);
+      padding-left: 16px;
+    }
+    @media (max-width: 860px) {
+      .toc {
+        position: static;
+      }
+    }
+    .toc b {
+      display: block;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .toc ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 5px;
+    }
+    .toc ol ol {
+      padding-left: 12px;
+      margin-top: 5px;
+    }
+    .toc a {
+      color: var(--muted);
+    }
+    .toc a:hover {
+      color: var(--accent-ink);
+    }
+
+    .doc {
+      min-width: 0;
+      max-width: 760px;
+    }
+    .doc section {
+      padding-bottom: 36px;
+    }
+    .doc h2 {
+      font-size: clamp(26px, 3.6vw, 34px);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      margin: 8px 0 16px;
+    }
+    .doc h3 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin: 28px 0 10px;
+    }
+    .doc ul,
+    .doc ol.plain {
+      margin: 0 0 14px;
+      padding-left: 22px;
+    }
+    .doc li {
+      margin-bottom: 6px;
+    }
+    .muted {
+      color: var(--muted);
+    }
+
+    pre.shell {
+      margin: 0 0 16px;
+      background: var(--term-bg);
+      color: var(--term-ink);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13.5px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    pre.shell .c {
+      color: var(--term-muted);
+    }
+    pre.shell .p {
+      color: var(--term-muted);
+      user-select: none;
+    }
+    pre.shell .ok {
+      color: var(--term-ok);
+    }
+    pre.shell .wn {
+      color: var(--term-warn);
+    }
+
+    .say {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      background: var(--accent-soft);
+      border-radius: 12px;
+      color: var(--ink);
+    }
+    .say .who {
+      flex: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-ink);
+      background: var(--surface);
+      border-radius: 999px;
+      padding: 2px 9px;
+      margin-top: 2px;
+    }
+    .say q {
+      quotes: "\201C" "\201D";
+    }
+
+    .step {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 22px 22px 8px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 560px) {
+      .step {
+        padding: 18px 16px 6px;
+      }
+    }
+    .step-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .step-head .n {
+      flex: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+    }
+    .step-head h3 {
+      margin: 0;
+    }
+    .step-head .tag {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 9px;
+      white-space: nowrap;
+    }
+    .result {
+      font-size: 15px;
+      color: var(--muted);
+      border-left: 3px solid var(--done);
+      padding-left: 12px;
+      margin: 0 0 16px;
+    }
+    .result b {
+      color: var(--done);
+      font-weight: 600;
+    }
+
+    .note {
+      font-size: 15px;
+      background: var(--marker-soft);
+      border: 1px solid var(--marker);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 0 0 16px;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      margin: 0 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 14.5px;
+    }
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    th {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      background: var(--surface-2);
+    }
+    td:first-child {
+      white-space: nowrap;
+    }
+    td:first-child code {
+      background: none;
+      padding: 0;
+      font-size: 13.5px;
+      color: var(--ink);
+    }
+
+    footer {
+      padding-block: 30px 40px;
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      gap: 10px 18px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--line);
+      margin-top: 24px;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <a class="brand" href="./"><span class="mark"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>todoer</a>
+        <nav class="nav" aria-label="Pages">
+          <a href="./">Home</a>
+          <a href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md" target="_blank" rel="noopener">Commands</a>
+          <a class="wide" href="https://github.com/sobanieca/todoer" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+      </header>
+
+      <div class="head">
+        <span class="kicker">// guide</span>
+        <h1>Work with todoer <em>and your agents.</em></h1>
+        <p class="lead">This guide shows the workflow from a new todo to a merge. For each step, it shows what you tell your agent, the command that runs, and the commit that it makes.</p>
+      </div>
+
+      <div class="layout">
+        <nav class="toc" aria-label="Contents">
+          <b>Contents</b>
+          <ol>
+            <li><a href="#setup">Set up</a></li>
+            <li><a href="#ideas">The ideas</a></li>
+            <li><a href="#workflow">The workflow</a>
+              <ol>
+                <li><a href="#add">1. Add todos</a></li>
+                <li><a href="#claim">2. Claim</a></li>
+                <li><a href="#implement">3. Implement</a></li>
+                <li><a href="#submit">4. Submit</a></li>
+                <li><a href="#review">5. Review</a></li>
+                <li><a href="#update">6. Update</a></li>
+                <li><a href="#merge">7. Merge</a></li>
+              </ol>
+            </li>
+            <li><a href="#cases">Other cases</a></li>
+            <li><a href="#commands">All commands</a></li>
+          </ol>
+        </nav>
+
+        <main class="doc">
+          <section id="setup">
+            <h2>Set up</h2>
+            <p>Install the binary. It is one file for Linux and macOS.</p>
+<pre class="shell"><span class="p">$ </span>curl -fsSL sobanieca.github.io/todoer/install.sh | bash</pre>
+            <p>todoer uses your git email to know who you are. Make sure that git has it:</p>
+<pre class="shell"><span class="p">$ </span>git config user.email
+<span class="c">you@example.com</span></pre>
+            <p>In each project, write the agent skill once and commit it. Claude Code, Codex and Cursor read it, so your agent knows the workflow below.</p>
+<pre class="shell"><span class="p">$ </span>cd ~/code/my-project
+<span class="p">$ </span>todoer skill --init
+<span class="c">wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
+wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span></pre>
+          </section>
+
+          <section id="ideas">
+            <h2>The ideas</h2>
+            <ul>
+              <li>A todo is a file <code>.todoer/todos/&lt;name&gt;.md</code>. The name is its id and its title. A todo with an <code>assignee</code> is in progress.</li>
+              <li>A pull request is a folder <code>.todoer/prs/&lt;name&gt;/</code> with a patch, a diff and a review. It is on the branch that it goes into, so you review and merge it on your branch.</li>
+              <li>todoer knows no main branch. It works on the branch that is checked out. Your branch can be <code>main</code> or a feature branch.</li>
+              <li><code>claim</code>, <code>unclaim</code> and the pull request commands commit only their own files. The other todo commands change files and do not commit.</li>
+              <li>When your checkout has other changes that are not committed, todoer does not commit. It writes the files and tells you. Then commit them yourself. <code>--no-commit</code> does the same on request.</li>
+              <li>todoer never pushes. Push when you want other people to see the change.</li>
+            </ul>
+          </section>
+
+          <section id="workflow">
+            <h2>The workflow</h2>
+            <p>In this example, you work on <code>main</code> in <code>~/code/my-project</code>. The same steps work on any branch.</p>
+
+            <article class="step" id="add">
+              <div class="step-head"><span class="n">1</span><h3>Add todos</h3><span class="tag">you</span></div>
+              <p>Add a todo with a name, labels and the text. The text can also come on stdin.</p>
+<pre class="shell"><span class="p">$ </span>todoer add fix-the-login-crash -l auth "Steps to reproduce: sign in with an expired token."
+<span class="c">.todoer/todos/fix-the-login-crash.md</span>
+<span class="p">$ </span>todoer add add-rate-limiting -l auth -d fix-the-login-crash</pre>
+              <p class="result"><b>No commit.</b> Commit the todos yourself, or let the claim in the next step commit the new todo file.</p>
+            </article>
+
+            <article class="step" id="claim">
+              <div class="step-head"><span class="n">2</span><h3>Claim</h3><span class="tag">agent</span></div>
+              <div class="say"><span class="who">you</span><q>Claim fix-the-login-crash.</q></div>
+              <p>The agent runs <code>todoer claim</code>. It sets you as the assignee: the agent runs git with your email. You can also ask for a list of todos, or for all the todos of a label.</p>
+<pre class="shell"><span class="p">$ </span>todoer claim fix-the-login-crash
+<span class="c">claimed fix-the-login-crash for you@example.com</span>
+<span class="p">$ </span>todoer claim --label auth
+<span class="p">$ </span>todoer claim fix-the-login-crash add-rate-limiting</pre>
+              <p class="result"><b>Commit on main:</b> <code>todoer: claim fix-the-login-crash</code>. Push it, so that other people see the claim.</p>
+              <ul>
+                <li>A claim stops for a todo of another person, and for a todo that waits for a todo that you do not claim. Claim the todos together, or use <code>--force</code>.</li>
+                <li><code>--label</code> skips the todos of other people.</li>
+                <li>When your checkout has other changes that are not committed, the claim writes the files but does not commit. Commit them yourself. <code>--no-commit</code> does the same.</li>
+                <li><code>todoer unclaim &lt;name&gt;</code> removes the assignee, and commits too.</li>
+              </ul>
+            </article>
+
+            <article class="step" id="implement">
+              <div class="step-head"><span class="n">3</span><h3>Implement in a worktree</h3><span class="tag">agent</span></div>
+              <div class="say"><span class="who">you</span><q>Implement it in a worktree.</q></div>
+              <p>The agent makes a new branch from your branch in a git worktree, or uses the worktree of its tool. Your checkout does not change. The agent implements the todos in dependency order, runs the checks of the project and commits.</p>
+<pre class="shell"><span class="p">$ </span>git worktree add -b fix-login ../my-project-fix-login main
+<span class="c"># the agent writes the code and commits on fix-login</span></pre>
+              <p>You can give one todo, a list of todos or a label in one request. One pull request can do many todos.</p>
+            </article>
+
+            <article class="step" id="submit">
+              <div class="step-head"><span class="n">4</span><h3>Submit into your branch</h3><span class="tag">agent</span></div>
+              <div class="say"><span class="who">you</span><q>Submit a pull request into main.</q></div>
+              <p>The agent runs one command in its worktree. <code>--branch</code> names the branch that the pull request goes into.</p>
+<pre class="shell"><span class="p">$ </span>todoer pr submit --branch main -m "Use the retry constant." --todo fix-the-login-crash
+<span class="c"><span class="ok">submitted</span> fix-the-login-crash: 1 commit, 2 files, into main
+.todoer/prs/fix-the-login-crash on main, in the checkout ~/code/my-project
+todos: fix-the-login-crash
+committed on main</span></pre>
+              <p class="result"><b>Commit on main:</b> <code>todoer: submit fix-the-login-crash</code>. The pull request is now on your branch. It does not need the branch of the agent: you can remove that worktree and branch.</p>
+              <ul>
+                <li>The patch has every commit since the work started from <code>--branch</code>: the commits after the merge base. Commits that change only <code>.todoer/</code> do not count.</li>
+                <li>todoer squashes these commits into one commit in <code>pr.patch</code>. The author is you. The subject is the subject of the first commit, and the body lists the subject of each commit.</li>
+                <li>The submit stops when the worktree has changes that are not committed.</li>
+                <li><code>-n</code> gives the name. Without it, todoer uses the subject of the first commit.</li>
+                <li><code>--todo</code> names each todo of the pull request. The merge removes them.</li>
+                <li>When <code>--branch</code> is checked out, todoer writes the folder in that checkout and commits there. When that checkout has other changes, it does not commit, and you commit the folder yourself.</li>
+                <li>When <code>--branch</code> is not checked out, todoer commits the folder on it directly. See <a href="#other-branch">a pull request into another branch</a>.</li>
+              </ul>
+            </article>
+
+            <article class="step" id="review">
+              <div class="step-head"><span class="n">5</span><h3>Review</h3><span class="tag">you + agent</span></div>
+              <div class="say"><span class="who">you</span><q>Explain the pull request fix-the-login-crash.</q></div>
+              <p>Review in your checkout, where the pull request is. Talk with an agent about the change. Tell it which comments to add.</p>
+              <div class="say"><span class="who">you</span><q>On line 2 of src/auth.rs, ask for a test of the retry path.</q></div>
+<pre class="shell"><span class="p">$ </span>todoer pr ls
+<span class="c">fix-the-login-crash  no comments  fix-login -&gt; main  you@example.com</span>
+<span class="p">$ </span>todoer pr summary fix-the-login-crash
+<span class="p">$ </span>todoer pr details fix-the-login-crash src/auth.rs
+<span class="p">$ </span>todoer pr comment fix-the-login-crash src/auth.rs:2 "Add a test for the retry path."
+<span class="c">added the comment c1 on src/auth.rs:2 in fix-the-login-crash</span></pre>
+              <p>A comment can target a line (<code>src/auth.rs:2</code>), lines (<code>src/auth.rs:1-3</code>), a removed line (<code>src/auth.rs:old:2</code>), a file, a folder (<code>src/</code>) or the whole pull request (no target). You can also read the review alone with <code>todoer pr review &lt;pr&gt;</code>.</p>
+              <p><code>pr comment</code> writes <code>review.md</code> and does not commit it. When the review is done, commit it, or ask the agent to:</p>
+<pre class="shell"><span class="p">$ </span>git add .todoer/prs/fix-the-login-crash/review.md
+<span class="p">$ </span>git commit -m "Review fix-the-login-crash" -- .todoer/prs/fix-the-login-crash/review.md</pre>
+              <div class="note">There is no approve and no request for changes. If the pull request is good, <a href="#merge">merge it</a>. If it needs changes, commit the review and give it to an agent.</div>
+            </article>
+
+            <article class="step" id="update">
+              <div class="step-head"><span class="n">6</span><h3>Update</h3><span class="tag">agent</span></div>
+              <div class="say"><span class="who">you</span><q>Do the review of fix-the-login-crash and update the pull request.</q></div>
+              <p>This can be a new agent. It reads the review in your checkout. Then it makes a new worktree and a new branch with its own tool, at the commit <code>base</code> of <code>pr.md</code>, and restores the commit of the pull request with <code>git am</code>. The branch of the first work is not necessary. It does the comments, commits and updates the pull request:</p>
+<pre class="shell"><span class="p">$ </span>todoer pr review fix-the-login-crash
+<span class="p">$ </span>git worktree add -b fix-login-2 ../my-project-fix-login-2 &lt;base&gt;
+<span class="p">$ </span>cd ../my-project-fix-login-2
+<span class="p">$ </span>git am ~/code/my-project/.todoer/prs/fix-the-login-crash/pr.patch
+<span class="c"># the agent does the comments and commits</span>
+<span class="p">$ </span>todoer pr submit --branch main -n fix-the-login-crash --update -m "Added the test."
+<span class="c"><span class="ok">updated</span> fix-the-login-crash: 2 commits squashed to 1, 2 files, into main
+removed the review (1 comment) - git history keeps it
+committed on main</span></pre>
+              <p class="result"><b>Commit on main:</b> <code>todoer: update fix-the-login-crash</code>. The patch is new and the review is empty. Review again from step 5, or merge.</p>
+              <ul>
+                <li>Without <code>--update</code>, a submit stops while the review has comments.</li>
+                <li><code>-m</code> writes the <code>## Update</code> section of <code>pr.md</code>. The agent says there what it changed, and why it did not do a comment.</li>
+                <li><code>-n &lt;pr&gt; --update</code> lets the agent update the pull request from a new branch. <code>from</code> in <code>pr.md</code> changes to that branch.</li>
+                <li>The patch always applies on <code>base</code>. Do not apply it on the latest <code>main</code>: it can conflict.</li>
+                <li>If the agent tool starts the worktree at another commit, the agent runs <code>git reset --hard &lt;base&gt;</code> in it first. Files that the tool copies into the worktree, and that git does not track, stay.</li>
+              </ul>
+            </article>
+
+            <article class="step" id="merge">
+              <div class="step-head"><span class="n">7</span><h3>Merge</h3><span class="tag">you</span></div>
+              <p>On your branch, merge the pull request. A merge is the approval.</p>
+<pre class="shell"><span class="p">$ </span>todoer pr merge fix-the-login-crash
+<span class="c"><span class="ok">merged</span> fix-the-login-crash into main
+done: fix-the-login-crash</span></pre>
+              <p class="result"><b>Commit on main:</b> one commit with the changes of the pull request. It also removes the pull request folder and its todos. git history keeps them.</p>
+              <ul>
+                <li>The merge runs <code>git am --3way</code>. It adds the one squashed commit of the patch. The commits of the work stay only on the branch of the agent.</li>
+                <li>The merge stops while the review has a comment.</li>
+                <li>When the patch does not apply, nothing changes. Ask the agent to rebase its branch on your branch and to update the pull request.</li>
+                <li><code>--no-commit</code> puts the changes in the working tree and the index.</li>
+                <li>To drop a pull request, run <code>todoer pr close &lt;pr&gt;</code>. The todos stay.</li>
+              </ul>
+            </article>
+          </section>
+
+          <section id="cases">
+            <h2>Other cases</h2>
+
+            <h3 id="other-branch">A pull request into another branch</h3>
+            <p>You work on <code>feature-x</code>, but the pull request must go into <code>main</code>:</p>
+<pre class="shell"><span class="p">$ </span>todoer pr submit --branch main --todo fix-the-login-crash
+<span class="c">.todoer/prs/fix-the-login-crash on main
+committed on main</span></pre>
+            <p>When no checkout has <code>main</code>, todoer commits the folder on <code>main</code> directly. Your working tree does not change. Check out <code>main</code> to review and merge. <code>--no-commit</code> is not possible in this case.</p>
+            <p>Make sure that the work starts from <code>main</code>. The patch has every commit after the merge base with <code>--branch</code>.</p>
+
+            <h3>Plan with labels and dependencies</h3>
+<pre class="shell"><span class="p">$ </span>todoer dep add add-rate-limiting fix-the-login-crash
+<span class="p">$ </span>todoer add new-login-page -D auth-backend-refactor
+<span class="p">$ </span>todoer ls --available
+<span class="p">$ </span>todoer dep show add-rate-limiting
+<span class="p">$ </span>todoer progress auth
+<span class="c">auth  1/2 in progress (50%)  [#-]</span></pre>
+            <p>A todo waits while a todo of its <code>dependsOn</code> exists. todoer refuses a dependency that makes a cycle.</p>
+            <p>A todo can also wait for a group of todos. <code>-D auth-backend-refactor</code> (or <code>dep add &lt;name&gt; -l &lt;label&gt;</code>) writes <code>dependsOnLabels</code>. The todo waits while another todo has the label, also a todo that gets the label later.</p>
+
+            <h3>Let the agent add the labels</h3>
+            <p>A label rule tells in plain words which todos must have a label. todoer stores the rule in <code>.todoer/labels/&lt;label&gt;.md</code>. It does not read the words.</p>
+<pre class="shell"><span class="p">$ </span>todoer labels rule auth "Add this label to a todo that changes the login or the tokens."
+<span class="c">.todoer/labels/auth.md</span>
+<span class="p">$ </span>todoer labels
+<span class="c">auth  2 todos
+  Add this label to a todo that changes the login or the tokens.</span></pre>
+            <p>When an agent adds a todo, it reads the rules, adds the labels that match, and tells you why. Commit the rules as other files. <code>labels rm</code> and <code>labels mv</code> also remove and rename the rule.</p>
+
+            <h3>Finish a todo without a pull request</h3>
+<pre class="shell"><span class="p">$ </span>todoer done fix-the-login-crash</pre>
+            <p><code>done</code> removes the file, and removes the name from each <code>dependsOn</code>. When no other todo has a label of a <code>dependsOnLabels</code>, it removes the label from it. It does not commit. To drop a todo, use <code>done</code> too.</p>
+
+            <h3>See which areas a pull request changes</h3>
+            <p>Name the areas of the code in <code>.todoer/areas</code>, one per line. The patterns use the gitignore rules. The last pattern that matches a path wins.</p>
+<pre class="shell"><span class="p">$ </span>cat .todoer/areas
+security: /src/api/auth
+tests: /tests
+e2e-tests: /tests/e2e
+unit-tests: *.test.js
+<span class="p">$ </span>todoer pr summary add-rate-limiting
+<span class="c">...
+areas
+  security    2 files  +48 -6
+  e2e-tests   1 file   +31 -0
+  unit-tests  1 file   +22 -0
+  (no area)   1 file   +4 -1</span></pre>
+            <p>The summary shows each area that the pull request changes, with the number of files and lines. A pattern with no <code>/</code>, such as <code>*.test.js</code>, matches the file name in each folder. To review only some areas, give their names with <code>-a</code>. To hide some areas, give their names with <code>-x</code>:</p>
+<pre class="shell"><span class="p">$ </span>todoer pr details add-rate-limiting -a security,e2e-tests
+<span class="p">$ </span>todoer pr details add-rate-limiting -x e2e-tests,unit-tests</pre>
+            <p><code>summary</code> and <code>review</code> take <code>-a</code> and <code>-x</code> too.</p>
+
+            <h3>All your projects</h3>
+            <p>Outside a git repository, <code>todoer ls</code> lists the todos of each project folder in the current folder, for example <code>~/code</code>.</p>
+          </section>
+
+          <section id="commands">
+            <h2>All commands</h2>
+            <p>Run <code>todoer help</code> to see this list in the terminal. The <a href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md" target="_blank" rel="noopener">command reference</a> has every option, and <a href="https://github.com/sobanieca/todoer/blob/main/docs/data.md" target="_blank" rel="noopener">the file reference</a> shows each file.</p>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Command</th><th>Does</th></tr></thead>
+                <tbody>
+                  <tr><td><code>todoer add &lt;name&gt; [-l label] [-d name] [-D label] [text]</code></td><td>adds a todo</td></tr>
+                  <tr><td><code>todoer ls [--mine] [--label l] [--available] [--json]</code></td><td>lists the todos</td></tr>
+                  <tr><td><code>todoer claim &lt;name&gt;... [--label l] [--force] [--no-commit]</code></td><td>sets you as the assignee and commits</td></tr>
+                  <tr><td><code>todoer unclaim &lt;name&gt;... [--no-commit]</code></td><td>removes the assignee and commits</td></tr>
+                  <tr><td><code>todoer done &lt;name&gt;...</code></td><td>removes the todos</td></tr>
+                  <tr><td><code>todoer mv &lt;old&gt; &lt;new&gt;</code></td><td>renames a todo</td></tr>
+                  <tr><td><code>todoer check</code></td><td>reports bad todos and bad label rules</td></tr>
+                  <tr><td><code>todoer dep add|rm|show</code></td><td>changes or shows the dependencies</td></tr>
+                  <tr><td><code>todoer label add|rm</code>, <code>todoer labels [rm|mv]</code></td><td>changes, lists, removes or renames the labels</td></tr>
+                  <tr><td><code>todoer labels rule &lt;label&gt; [text|--rm]</code></td><td>writes or removes the rule of a label</td></tr>
+                  <tr><td><code>todoer progress [label]</code></td><td>shows the progress of a label</td></tr>
+                  <tr><td><code>todoer pr submit --branch b [-n name] [-m text] [--todo name]... [--update]</code></td><td>writes the pull request on <code>b</code> and commits it</td></tr>
+                  <tr><td><code>todoer pr ls [--json]</code></td><td>lists the pull requests</td></tr>
+                  <tr><td><code>todoer pr summary|details|review &lt;pr&gt; [-a area,...] [-x area,...]</code></td><td>shows the change and the comments</td></tr>
+                  <tr><td><code>todoer pr comment &lt;pr&gt; [target] [text]</code></td><td>adds a comment to <code>review.md</code></td></tr>
+                  <tr><td><code>todoer pr merge &lt;pr&gt; [--no-commit]</code></td><td>applies the patch as one commit</td></tr>
+                  <tr><td><code>todoer pr close &lt;pr&gt; [--no-commit]</code></td><td>removes the pull request</td></tr>
+                  <tr><td><code>todoer skill [--init]</code></td><td>prints or writes the agent skill</td></tr>
+                  <tr><td><code>todoer update</code></td><td>installs the latest release</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <footer>
+        <span><code>todoer</code> &middot; MIT license &middot; pre-1.0</span>
+        <a href="./">Home</a>
+        <a href="https://github.com/sobanieca/todoer" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md" target="_blank" rel="noopener">Commands</a>
+        <a href="https://github.com/sobanieca/todoer/blob/main/docs/data.md" target="_blank" rel="noopener">Files</a>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,9 +1,9 @@
 //! The text of `pr summary` and `pr details`.
 
+use crate::areas::Filter;
 use crate::colors;
 use crate::diff::{self, Kind};
 use crate::git;
-use crate::owners::{self, Filter, Owners};
 use crate::project::Project;
 use crate::prs::Pr;
 use crate::review::{Comment, Review, Target};
@@ -28,23 +28,24 @@ pub fn file_comments<'a>(review: &'a Review, file: &diff::File) -> Vec<&'a Comme
         .collect()
 }
 
-pub fn summary(project: &Project, pr: &Pr, owners: &Owners, filter: &Filter) -> String {
+pub fn summary(pr: &Pr, filter: &Filter) -> String {
     let mut out = String::new();
     let review = pr.review();
-    let files = pr.files();
+    let all_files = pr.files();
     out.push_str(&format!(
-        "{}  {}   {}  by {}\n",
-        colors::bold(&pr.slug),
-        pr.title,
+        "{}   {}  by {}\n",
+        colors::bold(&pr.name),
         colors::green("open"),
         pr.author
     ));
-    let mut second = vec![format!("base {}", short(&pr.base))];
+    let mut second = vec![format!(
+        "from {} into {} at {}",
+        pr.from,
+        pr.into,
+        short(&pr.base)
+    )];
     if !pr.todos.is_empty() {
         second.push(format!("todos: {}", pr.todos.join(", ")));
-    }
-    if review.verdict != "pending" {
-        second.push(verdict_color(&review.verdict));
     }
     out.push_str(&format!("{}\n", second.join("   ")));
     if !pr.description().is_empty() {
@@ -54,37 +55,32 @@ pub fn summary(project: &Project, pr: &Pr, owners: &Owners, filter: &Filter) -> 
         }
     }
     out.push('\n');
-    let shown: Vec<(&diff::File, Vec<String>)> = files
+    let files: Vec<&diff::File> = all_files
         .iter()
-        .map(|file| (file, owners.of_file(file)))
-        .filter(|(_, file_owners)| filter.keep(file_owners))
+        .filter(|file| filter.keeps_file(file))
         .collect();
-    let unchanged: Vec<(String, Vec<String>)> = unchanged_paths(&review, &files)
+    let unchanged: Vec<String> = unchanged_paths(&review, &all_files)
         .into_iter()
-        .map(|path| {
-            let path_owners = owners.of_path(&path);
-            (path, path_owners)
-        })
-        .filter(|(_, path_owners)| filter.keep(path_owners))
+        .filter(|path| filter.keeps_path(path))
         .collect();
-    let path_width = shown
+    let path_width = files
         .iter()
-        .map(|(file, _)| file.display_path().chars().count())
-        .chain(unchanged.iter().map(|(path, _)| path.chars().count()))
+        .map(|file| file.display_path().chars().count())
+        .chain(unchanged.iter().map(|path| path.chars().count()))
         .max()
         .unwrap_or(0);
-    let adds_width = shown
+    let adds_width = files
         .iter()
-        .map(|(file, _)| file.additions.to_string().len() + 1)
+        .map(|file| file.additions.to_string().len() + 1)
         .max()
         .unwrap_or(0);
-    let dels_width = shown
+    let dels_width = files
         .iter()
-        .map(|(file, _)| file.deletions.to_string().len() + 1)
+        .map(|file| file.deletions.to_string().len() + 1)
         .max()
         .unwrap_or(0);
     let stats_width = (adds_width + dels_width + 1).max(if unchanged.is_empty() { 0 } else { 9 });
-    for (file, file_owners) in &shown {
+    for file in &files {
         let count = file_comments(&review, file).len();
         let adds = if file.additions > 0 {
             colors::green(&format!("+{}", file.additions))
@@ -107,57 +103,74 @@ pub fn summary(project: &Project, pr: &Pr, owners: &Owners, filter: &Filter) -> 
             colors::pad_left(&dels, dels_width)
         );
         let line = format!(
-            " {}  {}  {}  {}  {}",
+            " {}  {}  {}  {}",
             letter_color(file.letter()),
             colors::pad(&file.display_path(), path_width),
             colors::pad(&stats, stats_width),
-            colors::pad(&colors::yellow(&comments), 10),
-            colors::gray(&owners::display(file_owners, owners.configured))
+            colors::yellow(&comments)
         );
         out.push_str(&format!("{}\n", line.trim_end()));
     }
-    for (path, path_owners) in &unchanged {
+    for path in &unchanged {
         let count = path_comments(&review, path).len();
         let line = format!(
-            "    {}  {}  {}  {}",
+            "    {}  {}  {}",
             colors::pad(path, path_width),
             colors::pad(&colors::gray("no change"), stats_width),
-            colors::pad(&colors::yellow(&plural(count, "comment")), 10),
-            colors::gray(&owners::display(path_owners, owners.configured))
+            colors::yellow(&plural(count, "comment"))
         );
         out.push_str(&format!("{}\n", line.trim_end()));
     }
-    let additions: usize = shown.iter().map(|(file, _)| file.additions).sum();
-    let deletions: usize = shown.iter().map(|(file, _)| file.deletions).sum();
-    let mut footer = vec![
-        format!("{}, +{additions} -{deletions}", plural(shown.len(), "file")),
-        plural(pr.commits(), "commit"),
-    ];
+    let additions: usize = files.iter().map(|file| file.additions).sum();
+    let deletions: usize = files.iter().map(|file| file.deletions).sum();
+    let mut footer = vec![format!(
+        "{}, +{additions} -{deletions}",
+        plural(files.len(), "file")
+    )];
     if !review.comments.is_empty() {
         footer.push(plural(review.comments.len(), "comment"));
-    }
-    let drafts = pr.drafts(project).len();
-    if drafts > 0 {
-        footer.push(colors::yellow(&plural(drafts, "draft comment")));
     }
     out.push_str(&format!("{}\n", footer.join("    ")));
     if !filter.is_all() {
         out.push_str(&colors::gray(&format!(
             "showing {}: {} of {} files\n",
             filter.describe(),
-            shown.len(),
-            files.len()
+            files.len(),
+            all_files.len()
         )));
     }
+    out.push_str(&area_lines(filter, &files));
     out
 }
 
-pub fn verdict_color(verdict: &str) -> String {
-    match verdict {
-        "approved" => colors::green(verdict),
-        "changes-requested" => colors::red(verdict),
-        _ => colors::gray(verdict),
+fn area_lines(filter: &Filter, files: &[&diff::File]) -> String {
+    let counts = filter.areas.count(files);
+    if counts.is_empty() {
+        return String::new();
     }
+    let name = |area: &Option<String>| area.clone().unwrap_or_else(|| "(no area)".into());
+    let name_width = counts
+        .iter()
+        .map(|count| name(&count.area).chars().count())
+        .max()
+        .unwrap_or(0);
+    let files_width = counts
+        .iter()
+        .map(|count| plural(count.files, "file").len())
+        .max()
+        .unwrap_or(0);
+    let mut out = format!("\n{}\n", colors::bold("areas"));
+    for count in &counts {
+        let line = format!(
+            "  {}  {}  {} {}",
+            colors::pad(&name(&count.area), name_width),
+            colors::pad(&plural(count.files, "file"), files_width),
+            colors::green(&format!("+{}", count.additions)),
+            colors::red(&format!("-{}", count.deletions))
+        );
+        out.push_str(&format!("{line}\n"));
+    }
+    out
 }
 
 fn letter_color(letter: char) -> String {
@@ -507,17 +520,12 @@ pub struct DetailsOptions<'a> {
     pub paths: Vec<String>,
     pub context: usize,
     pub lines: Option<(usize, usize)>,
-    pub filter: &'a Filter,
+    pub filter: &'a Filter<'a>,
 }
 
-fn comment_lines(comment: &Comment, drafts: &[String], indent: &str) -> Vec<String> {
+fn comment_lines(comment: &Comment, indent: &str) -> Vec<String> {
     let mut out = Vec::new();
-    let draft = if drafts.contains(&comment.id) {
-        colors::gray(" (draft)")
-    } else {
-        String::new()
-    };
-    let head = format!("[{}]{draft} {}: ", comment.id, comment.author);
+    let head = format!("[{}] {}: ", comment.id, comment.author);
     let width = colors::width(&head);
     for (index, line) in comment.text.lines().enumerate() {
         let prefix = if index == 0 {
@@ -540,28 +548,23 @@ fn comment_lines(comment: &Comment, drafts: &[String], indent: &str) -> Vec<Stri
     out
 }
 
-struct Printer<'a> {
-    drafts: &'a [String],
+struct Printer {
     indent: String,
     out: String,
     printed: Vec<String>,
 }
 
-impl Printer<'_> {
+impl Printer {
     fn comment(&mut self, comment: &Comment) {
-        for line in comment_lines(comment, self.drafts, &self.indent) {
+        for line in comment_lines(comment, &self.indent) {
             self.out.push_str(&format!("{line}\n"));
         }
         self.printed.push(comment.id.clone());
     }
 
-    fn header(&mut self, path: &str, stats: &str, path_owners: &str) {
-        let header = format!(
-            "{}  ({stats})  {}",
-            colors::bold(path),
-            colors::gray(path_owners)
-        );
-        self.out.push_str(&format!("{}\n", header.trim_end()));
+    fn header(&mut self, path: &str, stats: &str) {
+        self.out
+            .push_str(&format!("{}  ({stats})\n", colors::bold(path)));
     }
 
     fn rows(&mut self, rows: &[Row], comments: &[&Comment]) {
@@ -608,19 +611,9 @@ impl Printer<'_> {
     }
 }
 
-pub fn details(
-    project: &Project,
-    pr: &Pr,
-    owners: &Owners,
-    options: &DetailsOptions,
-) -> Result<String, String> {
+pub fn details(project: &Project, pr: &Pr, options: &DetailsOptions) -> Result<String, String> {
     let files = pr.files();
     let review = pr.review();
-    let drafts: Vec<String> = pr
-        .drafts(project)
-        .into_iter()
-        .map(|comment| comment.id)
-        .collect();
     let unchanged = unchanged_paths(&review, &files);
     for path in &options.paths {
         if !files.iter().any(|file| file.matches(path)) && !unchanged.contains(path) {
@@ -631,7 +624,6 @@ pub fn details(
     }
     let gutter = " ".repeat(10);
     let mut printer = Printer {
-        drafts: &drafts,
         indent: format!("{gutter} |   "),
         out: String::new(),
         printed: Vec::new(),
@@ -650,7 +642,7 @@ pub fn details(
             printer
                 .out
                 .push_str(&format!("{}\n", colors::bold(&heading)));
-            for line in comment_lines(comment, &drafts, "  ") {
+            for line in comment_lines(comment, "  ") {
                 printer.out.push_str(&format!("{line}\n"));
             }
             printer.out.push('\n');
@@ -662,8 +654,7 @@ pub fn details(
         if !options.paths.is_empty() && !options.paths.iter().any(|path| file.matches(path)) {
             continue;
         }
-        let file_owners = owners.of_file(file);
-        if !options.filter.keep(&file_owners) {
+        if !options.filter.keeps_file(file) {
             continue;
         }
         if !first {
@@ -674,11 +665,7 @@ pub fn details(
         if file.additions > 0 || file.deletions > 0 {
             stats.push(format!("+{} -{}", file.additions, file.deletions));
         }
-        printer.header(
-            &file.display_path(),
-            &stats.join(", "),
-            &owners::display(&file_owners, owners.configured),
-        );
+        printer.header(&file.display_path(), &stats.join(", "));
         let comments = file_comments(&review, file);
         for comment in comments
             .iter()
@@ -716,19 +703,14 @@ pub fn details(
         printer.rows(&file_rows, &comments);
     }
     for path in unchanged.iter().filter(|path| wanted(path)) {
-        let path_owners = owners.of_path(path);
-        if !options.filter.keep(&path_owners) {
+        if !options.filter.keeps_path(path) {
             continue;
         }
         if !first {
             printer.out.push('\n');
         }
         first = false;
-        printer.header(
-            path,
-            "no change",
-            &owners::display(&path_owners, owners.configured),
-        );
+        printer.header(path, "no change");
         let comments = path_comments(&review, path);
         for comment in comments
             .iter()
@@ -742,7 +724,7 @@ pub fn details(
         printer.rows(&file_rows, &comments);
     }
     let mut out = printer.out;
-    if first && !files.is_empty() {
+    if first && !options.filter.is_all() {
         out.push_str(&format!("no file matches {}\n", options.filter.describe()));
     }
     Ok(out)

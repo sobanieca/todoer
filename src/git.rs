@@ -79,8 +79,53 @@ pub fn run_input(cwd: &Path, args: &[&str], input: Option<&str>) -> Result<Outpu
     })
 }
 
+pub fn run_with_index(cwd: &Path, args: &[&str], index: &Path) -> Result<Output, String> {
+    let output = command(cwd, args)
+        .env("GIT_INDEX_FILE", index)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(spawn_error)?;
+    Ok(Output {
+        ok: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
+}
+
+pub fn check_with_index(cwd: &Path, args: &[&str], index: &Path) -> Result<Output, String> {
+    let output = run_with_index(cwd, args, index)?;
+    if !output.ok {
+        return Err(format!(
+            "git {} failed: {}",
+            args.first().unwrap_or(&""),
+            output.message()
+        ));
+    }
+    Ok(output)
+}
+
+pub fn git_path(cwd: &Path, name: &str) -> Result<PathBuf, String> {
+    text(
+        cwd,
+        &["rev-parse", "--path-format=absolute", "--git-path", name],
+    )
+    .map(PathBuf::from)
+}
+
 pub fn check(cwd: &Path, args: &[&str]) -> Result<Output, String> {
     let output = run(cwd, args)?;
+    if !output.ok {
+        return Err(format!(
+            "git {} failed: {}",
+            args.first().unwrap_or(&""),
+            output.message()
+        ));
+    }
+    Ok(output)
+}
+
+pub fn check_input(cwd: &Path, args: &[&str], input: &str) -> Result<Output, String> {
+    let output = run_input(cwd, args, Some(input))?;
     if !output.ok {
         return Err(format!(
             "git {} failed: {}",
@@ -105,19 +150,6 @@ pub fn branch(cwd: &Path) -> Result<Option<String>, String> {
     Ok(output.ok.then(|| output.stdout.trim().to_string()))
 }
 
-pub fn branch_exists(cwd: &Path, name: &str) -> Result<bool, String> {
-    Ok(run(
-        cwd,
-        &[
-            "show-ref",
-            "--verify",
-            "--quiet",
-            &format!("refs/heads/{name}"),
-        ],
-    )?
-    .ok)
-}
-
 pub fn common_dir(cwd: &Path) -> Result<PathBuf, String> {
     text(
         cwd,
@@ -135,64 +167,44 @@ pub fn user_email(cwd: &Path) -> Result<String, String> {
     Ok(email)
 }
 
-pub struct Worktree {
-    pub path: PathBuf,
-    pub branch: Option<String>,
-    pub bare: bool,
-}
-
-pub fn parse_worktrees(porcelain: &str) -> Vec<Worktree> {
-    let mut worktrees: Vec<Worktree> = Vec::new();
-    for line in porcelain.lines() {
-        if let Some(path) = line.strip_prefix("worktree ") {
-            worktrees.push(Worktree {
-                path: PathBuf::from(path),
-                branch: None,
-                bare: false,
-            });
-        } else if let Some(current) = worktrees.last_mut() {
-            if let Some(branch) = line.strip_prefix("branch ") {
-                current.branch = Some(branch.trim_start_matches("refs/heads/").to_string());
-            } else if line == "bare" {
-                current.bare = true;
-            }
-        }
-    }
-    worktrees
-}
-
-pub fn worktrees(cwd: &Path) -> Result<Vec<Worktree>, String> {
-    Ok(parse_worktrees(
-        &check(cwd, &["worktree", "list", "--porcelain"])?.stdout,
-    ))
-}
-
 pub fn show(cwd: &Path, revision: &str, path: &str) -> Result<Option<String>, String> {
     let output = run(cwd, &["show", &format!("{revision}:{path}")])?;
     Ok(output.ok.then_some(output.stdout))
 }
 
+pub fn local_branch_exists(cwd: &Path, branch: &str) -> Result<bool, String> {
+    Ok(run(
+        cwd,
+        &[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            &format!("refs/heads/{branch}"),
+        ],
+    )?
+    .ok)
+}
+
+pub fn checkout_of_branch(cwd: &Path, branch: &str) -> Result<Option<PathBuf>, String> {
+    let list = check(cwd, &["worktree", "list", "--porcelain"])?.stdout;
+    let wanted = format!("branch refs/heads/{branch}");
+    for block in list.split("\n\n") {
+        let mut path = None;
+        let mut matches = false;
+        for line in block.lines() {
+            if let Some(rest) = line.strip_prefix("worktree ") {
+                path = Some(PathBuf::from(rest));
+            } else if line == wanted {
+                matches = true;
+            }
+        }
+        if let Some(path) = path.filter(|path| matches && path.is_dir()) {
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
 pub fn is_tracked(cwd: &Path, path: &str) -> Result<bool, String> {
     Ok(run(cwd, &["ls-files", "--error-unmatch", "--", path])?.ok)
-}
-
-pub fn has_changes(cwd: &Path, path: &str) -> Result<bool, String> {
-    let output = check(cwd, &["status", "--porcelain", "--", path])?;
-    Ok(!output.stdout.trim().is_empty())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_worktree_list() {
-        let list = parse_worktrees(
-            "worktree /repo\nHEAD abc\nbranch refs/heads/main\n\nworktree /repo/wt\nHEAD def\ndetached\n",
-        );
-        assert_eq!(list.len(), 2);
-        assert_eq!(list[0].branch.as_deref(), Some("main"));
-        assert_eq!(list[1].branch, None);
-        assert_eq!(list[1].path, PathBuf::from("/repo/wt"));
-    }
 }

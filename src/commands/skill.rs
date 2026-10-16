@@ -27,7 +27,7 @@ pub fn run(args: &Args) -> Result<(), String> {
     }
     let project = Project::find()?;
     for (path, _) in TARGETS {
-        let file = project.current.join(path);
+        let file = project.root.join(path);
         if file.exists() {
             return Err(format!(
                 "{} exists - remove it to write the skill again",
@@ -36,7 +36,7 @@ pub fn run(args: &Args) -> Result<(), String> {
         }
     }
     for (path, read_by) in TARGETS {
-        write_file(&project.current.join(path), SKILL)?;
+        write_file(&project.root.join(path), SKILL)?;
         println!("wrote {path}  ({read_by})");
     }
     Ok(())

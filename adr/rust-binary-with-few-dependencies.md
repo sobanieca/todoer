@@ -9,7 +9,7 @@ The new design has no page, so a command line tool is enough.
 
 **todoer is one Rust binary. The only crate is `ureq`.**
 
-- The argument parser, the colors, the JSON parser, the front matter parser, the diff parser and the
+- The argument parser, the colors, the JSON writer, the front matter parser, the diff parser and the
   gitignore pattern matcher are small modules in the crate, with tests.
 - `ureq` downloads the releases for `todoer update`.
 - todoer runs git as a child process. It does not link a git library.
