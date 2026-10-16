@@ -212,6 +212,8 @@ fn todos_of_many_projects() {
     s.quiet("todoer add fix-login -l auth");
     s.quiet("mkdir ../other && cd ../other && git init -q && git commit -q --allow-empty -m init && git checkout -q -b feat/some-feature && todoer add write-docs && todoer claim write-docs");
     s.quiet("mkdir ../empty && cd ../empty && git init -q");
+    s.quiet("mkdir -p ../work/api && cd ../work/api && git init -q && git commit -q --allow-empty -m init && todoer add add-rate-limit");
+    s.quiet("cd ../other && git worktree add -q ../other-docs");
     s.run("cd .. && todoer ls");
     s.run("cd .. && todoer ls --mine");
     s.run("cd .. && todoer ls --label auth --json");

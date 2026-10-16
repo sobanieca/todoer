@@ -131,16 +131,31 @@ pub fn ls(args: &Args) -> Result<(), String> {
 }
 
 fn projects_in(folder: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(folder) else {
-        return Vec::new();
-    };
-    let mut found: Vec<PathBuf> = entries
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.join(".git").exists() && todos_dir(path).is_dir())
-        .collect();
+    let mut found = Vec::new();
+    collect_projects(folder, &mut found);
     found.sort();
     found
+}
+
+fn collect_projects(folder: &Path, found: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let is_folder = entry.file_type().is_ok_and(|kind| kind.is_dir());
+        let hidden = entry.file_name().to_string_lossy().starts_with('.');
+        if !is_folder || hidden {
+            continue;
+        }
+        let path = entry.path();
+        if path.join(".git").is_dir() {
+            if todos_dir(&path).is_dir() {
+                found.push(path);
+            }
+        } else if !path.join(".git").exists() {
+            collect_projects(&path, found);
+        }
+    }
 }
 
 fn ls_projects(args: &Args, folder: &Path) -> Result<(), String> {
@@ -155,13 +170,13 @@ fn ls_projects(args: &Args, folder: &Path) -> Result<(), String> {
     let mut printed = false;
     for root in &projects {
         let name = root
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .strip_prefix(folder)
+            .unwrap_or(root)
+            .components()
+            .map(|part| part.as_os_str().to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("/");
         let branch = Project::find_from(root)?.branch_name()?;
-        crate::logger::warn(&format!(
-            "{name}: todoer read the todos of the checked-out branch {branch}"
-        ));
         let todos = Todos::load(root)?;
         for problem in todos.problems() {
             crate::logger::warn(&format!("{name}: {problem}"));

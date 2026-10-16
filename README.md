@@ -21,7 +21,8 @@ claim todos, work in git worktrees, and review the pull requests on the command 
 - Label rules tell in plain words which todos must have a label. The agent reads them and adds the
   labels to a new todo.
 - Code areas show how much of a pull request changes each part of the code.
-- In a folder of projects, such as `~/code`, `todoer ls` lists the todos of every project.
+- In a folder of projects, such as `~/code`, `todoer ls` lists the todos of every project, with
+  its path and its checked-out branch. The other commands work in one project.
 
 todoer is not released yet. Until version `1.0.0`, any part of it can change.
 

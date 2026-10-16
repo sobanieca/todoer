@@ -25,11 +25,18 @@ commands commit only their own files. The other todo commands do not commit.**
   `pr merge` also applies the patch. todoer never pushes or fetches.
 - A lock file `todoer.lock` in the git common folder lets one todoer command write at a time.
 - `claim` refuses a todo of another person. `--force` only skips the dependency check.
-- Outside a git repository, `todoer ls` reads each project folder in the current folder, on the
-  branch that is checked out there, and warns about this branch.
+- Outside a git repository, only `todoer ls` reads many projects. It finds each git project with
+  `.todoer/todos/` in the current folder and in its subfolders.
+- `todoer ls` reads the branch that is checked out in each project. It shows the path of the project
+  relative to the current folder, and the branch, above the todos of the project.
+- `todoer ls` does not look into a project, a hidden folder or a linked worktree.
+- All other commands work on one project. Outside a git repository, they stop with an error.
 
 ## Consequences
 
 - Other people see a claim, a pull request or a review only after a push and a pull.
 - A pull request can go into any branch, also a feature branch. The pull requests of a feature
   branch stay on that branch.
+- A person sees the todos of all projects in one list. To change a todo or a pull request, the
+  person goes to the folder of the project. todoer never guesses the project of a change.
+- `todoer ls` does not show the todos of a linked worktree. Run `todoer ls` in the worktree.

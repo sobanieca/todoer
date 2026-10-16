@@ -762,7 +762,14 @@ areas
             <p><code>summary</code> and <code>review</code> take <code>-a</code> and <code>-x</code> too.</p>
 
             <h3>All your projects</h3>
-            <p>Outside a git repository, <code>todoer ls</code> lists the todos of each project folder in the current folder, for example <code>~/code</code>.</p>
+            <p>Outside a git repository, <code>todoer ls</code> lists the todos of each project in the current folder and in its subfolders, for example in <code>~/code</code>. Above the todos of a project, it shows the path of the project and the branch that is checked out there. todoer does not look into a linked worktree.</p>
+<pre class="shell"><span class="p">$ </span>cd ~/code &amp;&amp; todoer ls
+todoer  main
+  available    fix-login
+
+work/api  feat/rate-limit
+  in-progress  add-rate-limit  me@example.com</pre>
+            <p>Only <code>ls</code> reads many projects. To use another command, go to the folder of the project.</p>
           </section>
 
           <section id="commands">

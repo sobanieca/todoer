@@ -47,10 +47,24 @@ For the workflow from a new todo to a merge, read the [guide](https://sobanieca.
 
 ### Many projects
 
-Outside a git repository, `todoer ls` lists the todos of each folder in the current folder that is
-a git project with `.todoer/todos/`. For example, run it in `~/code`. todoer reads the todos of the
-branch that is checked out in each project, and tells this in a warning for each project.
-`ls --json` adds `project` and `branch` to each todo.
+Outside a git repository, `todoer ls` lists the todos of each git project with `.todoer/todos/` in
+the current folder and in its subfolders. For example, run it in `~/code`. todoer does not look
+into a project, a hidden folder or a linked worktree.
+
+todoer reads the todos of the branch that is checked out in each project. Above the todos of a
+project, it shows the path of the project relative to the current folder, and the branch.
+`ls --json` adds `project` (the path) and `branch` to each todo.
+
+```
+$ cd ~/code && todoer ls
+todoer  main
+  available    fix-login
+
+work/api  feat/rate-limit
+  in-progress  add-rate-limit  me@example.com
+```
+
+Only `ls` reads many projects. To use another command, go to the folder of the project.
 
 ## Dependencies and labels
 

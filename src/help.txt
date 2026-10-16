@@ -9,7 +9,8 @@ pull request commands commit only their own files. The other todo commands do no
 Todos:
   ls [--mine] [--label l] [--available] [--json]
                             list the todos; outside a git repository, list the todos of each
-                            project folder in the current folder
+                            project in the current folder and its subfolders, with its path
+                            and its checked-out branch
   add <name> [-l label]... [-d name]... [-D label]... [text]
                             add a todo; -D makes it wait for each todo of the label; the
                             text can come on stdin
