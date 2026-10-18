@@ -61,11 +61,13 @@ Rules that keep the data correct:
   writes and commits in that checkout. Else `Project::commit_to_branch` commits the folder on the
   branch with a temporary index. No other command changes a branch that is not checked out.
 - **todoer does few git operations.** It reads the diff, the patch and old files, `pr merge`
-  applies a patch, and `pr submit` commits its folder. It never pushes or fetches.
+  and `pr apply` apply a patch, and `pr submit` commits its folder. It never pushes or fetches.
 - **One lock.** Take `Project::lock` before a read that decides a change, and hold it until the
   write or the commit is done.
 - **A pull request is self-contained.** `pr.patch` is one squashed commit, for `git am`.
-  `pr.diff` is the combined diff for the review. The review needs no branch.
+  `pr.diff` is the combined diff for the review. The review needs no branch. `pr.md` names no
+  branch: the branch that holds the folder is the branch that it goes into, and `-n <pr>` finds
+  it for an update.
 - **Patches never contain `.todoer/`.** Every git command of a submit excludes it.
 - **A dependency never makes a cycle.** `dep add` checks `Todos::reaches` first. A label
   dependency is an edge to each other todo of the label, so `add`, `label add` and `labels mv`

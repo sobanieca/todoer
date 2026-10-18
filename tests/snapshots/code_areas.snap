@@ -1,11 +1,11 @@
-$ todoer pr submit --branch main [cwd: fix-sum]
+$ todoer pr submit --branch main -n use-three-for-b [cwd: fix-sum]
 submitted use-three-for-b: 1 commit, 3 files, into main
 .todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
 committed on main
 
 $ todoer pr summary use-three-for-b
 use-three-for-b   open  by me@example.com
-from fix-sum into main at b1b3d80
+base b1b3d80
 
  M  docs/guide.md             +1
  M  src/app.rs                +1 -1
@@ -20,7 +20,7 @@ areas
 
 $ todoer pr summary use-three-for-b -a legacy,app
 use-three-for-b   open  by me@example.com
-from fix-sum into main at b1b3d80
+base b1b3d80
 
  M  src/app.rs                +1 -1
  R  src/old.rs -> src/lib.rs
@@ -47,7 +47,7 @@ src/old.rs -> src/lib.rs  (R)
 
 $ todoer pr summary use-three-for-b -x app
 use-three-for-b   open  by me@example.com
-from fix-sum into main at b1b3d80
+base b1b3d80
 
  M  docs/guide.md             +1
  R  src/old.rs -> src/lib.rs

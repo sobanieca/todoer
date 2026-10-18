@@ -16,6 +16,8 @@ claim todos, work in git worktrees, and review the pull requests on the command 
 - A pull request is one commit: a submit squashes the commits of the work. A merge applies this
   commit on the current branch with `git am`. The same commit removes the pull request and its
   todos.
+- A pull request names no branch. Anyone can put it in a working tree with `todoer pr apply`, change
+  it and update it with `-n <pr> --update`.
 - Labels show the progress of related todos. Todos depend on each other, with no cycle. A todo can
   also depend on a label: it waits for every todo of the label.
 - Label rules tell in plain words which todos must have a label. The agent reads them and adds the
@@ -64,9 +66,10 @@ git add .todoer && git commit -m "Plan the auth work"
    you want.
 2. **Implement.** Ask the agent to implement the todos in a worktree. It makes a new branch from
    your branch, and commits.
-3. **Submit.** The agent runs `todoer pr submit --branch <your branch> --todo fix-login-crash`. The
-   pull request has all the commits since the work started from your branch, squashed into one
-   commit. todoer commits it on your branch.
+3. **Submit.** The agent runs
+   `todoer pr submit --branch <your branch> -n fix-login-crash --todo fix-login-crash`. The pull
+   request has all the commits since the work started from your branch, squashed into one commit.
+   todoer commits it on your branch.
 4. **Review.** Ask an agent to explain the patch and to add your comments with
    `todoer pr comment`. Or review in the terminal with `todoer pr review <pr>`. Then commit
    `review.md`.

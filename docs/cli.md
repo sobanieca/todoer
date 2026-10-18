@@ -24,6 +24,8 @@ For the workflow from a new todo to a merge, read the [guide](https://sobanieca.
   `.todoer/todos/fix-login.md`.
 - `ls` shows the state of each todo: `in-progress` (it has an assignee), `available` or `blocked` (it
   waits for a todo that still exists, or for a label that another todo still has).
+- `ls` also shows each open pull request that names the todo in `todos`: `pr: <name>`, with the
+  number of comments. `--json` adds the field `prs`.
 - `add` and `mv` refuse a bad name and print a correct name. Give `-l`, `-d` and `-D` once for each
   label and each dependency. `-D label` (`--depends-on-label`) makes the todo wait for each todo of
   the label. When there is no text and stdin is not a terminal, `add` reads the text from
@@ -120,8 +122,8 @@ blocked      new-login-page  waits for label auth-backend-refactor
 ### Label rules
 
 A label rule tells in plain words which todos must have a label. It is the file
-`.todoer/labels/<label>.md`. todoer does not read the words. The agent reads the rules after
-`todoer add`, and adds the labels.
+`.todoer/labels/<label>.md`. todoer does not read the words. The agent reads the rules before
+`todoer add`, and gives `-l` for each rule that the new todo matches.
 
 ```bash
 todoer labels rule auth "Add this label to a todo that changes the login, the sessions or the tokens."
@@ -139,17 +141,19 @@ docs  0 todos
 - `labels --json` adds the field `rule` to each label: the text of the rule, or `null`.
 - `labels rule <label> [text]` writes the rule, or replaces it. When there is no text and stdin is
   not a terminal, it reads the text from stdin.
-- `progress` shows how many todos of the label have an assignee. The total is the number of todos
-  with the label that exist now. It lists the todos in dependency order: in progress, available and
-  blocked. A blocking todo without the label shows `(outside label)`.
+- `progress` puts each todo of the label in one group: in a pull request (an open pull request
+  names it in `todos`), in progress (it has an assignee) or not started. The todos that exist now
+  are the total. Each group lists its todos in dependency order. A not started todo shows
+  `available`, or what it waits for. A blocking todo without the label shows `(outside label)`.
 
 ## Pull requests
 
 | Command                                                                                   | Does                                                  |
 | ----------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `todoer pr submit --branch b [-n name] [-m text] [--todo name]... [--update] [--no-commit]` | writes the commits of the branch as a pull request on `b` |
+| `todoer pr submit --branch b -n name [-m text] [--todo name]... [--update] [--no-commit]` | writes the commits of the branch as a pull request on `b` |
 | `todoer pr ls [--json]`                                                                   | lists the pull requests of the current checkout       |
 | `todoer pr merge <pr> [--no-commit]`                                                      | applies the patch on the current branch               |
+| `todoer pr apply <pr>`                                                                    | applies the patch to the working tree, no commit      |
 | `todoer pr close <pr> [--no-commit]`                                                      | removes a pull request without a merge                |
 
 A `<pr>` is the name or the path of the folder.
@@ -157,9 +161,8 @@ A `<pr>` is the name or the path of the folder.
 - `submit` takes the commits of the current branch after the merge base with `--branch`. This is
   all the work since the current branch started from `--branch`. Commits that change only
   `.todoer/` do not count.
-- `submit` squashes these commits into one commit in `pr.patch`. The author is you. For one
-  commit, the message does not change. For more commits, the subject of the first commit is the
-  subject, and the body lists the subject of each commit.
+- `submit` squashes these commits into one commit in `pr.patch`. The author is you. The
+  message is `todoer: merge <name>`. The messages of the commits of the work are not used.
 - `submit` writes `.todoer/prs/<name>/` on the branch `--branch`, and commits it there. The
   pull request lands on the branch that it goes into, so the review and the merge happen there.
 - When `--branch` is checked out in a checkout, for example your main checkout, `submit` writes
@@ -172,26 +175,39 @@ A `<pr>` is the name or the path of the folder.
 - `submit` stops when the current checkout has changes that are not committed. Commit the work
   first.
 - The name of the folder is the id and the title of the pull request, as for a todo. `-n` gives
-  the name. Without `-n`, todoer makes the name from the subject of the first commit. A later
-  submit from the same branch cannot change the name.
+  the name. `-n` is necessary: todoer does not make a name. When `--branch` has an open pull
+  request with that name, `submit` stops and names `-n <pr> --update`.
 - `--todo` names a todo of the pull request. Give it once for each todo. `pr merge` removes these
   todos.
-- A pull request keeps only the patch of its latest submit. A second submit from the same branch
-  replaces the patch and the diff, and removes the review. git history keeps the old patch and the
-  old review.
-- When the review has comments, a second submit stops. Do what the comments ask, then run
-  `todoer pr submit --branch <b> --update`. todoer does not check the comments.
+- A pull request keeps only the patch of its latest submit. `-n <pr> --update` replaces the patch
+  and the diff of `<pr>`, and removes the review. git history keeps the old patch and the old
+  review. The current branch can have any name: `-n` finds the pull request.
+- A submit without `--update` does not change an open pull request. It stops and names
+  `-n <pr> --update`. Do what the comments ask first. todoer does not check the comments.
 - A pull request does not need the branch of the work after the submit. You can remove that
   branch and its worktree.
 - To continue a pull request on a new branch, start the branch at the `base` of `pr.md`, then
   run `git am .todoer/prs/<pr>/pr.patch` from the checkout of `--branch`. This restores the one
   commit of the pull request. The patch always applies
-  on `base`. Then update with `-n <pr> --update`, and the pull request continues from the new
-  branch. todoer does not make the branch or the worktree.
-- `-m` on a second submit writes the `## Update` section of `pr.md`. Tell the reviewer what you
-  changed there.
-- `ls` lists the pull requests of the current checkout, with the number of comments, the branch of
-  the work and the branch that the pull request goes into.
+  on `base`. Then update with `-n <pr> --update`. todoer does not make the branch or the worktree.
+- `--update` writes the whole pull request again, as for a new one. `-m` replaces the
+  description, and `--todo` replaces the todos. Without them, the update copies the old
+  description and the old todos, and prints what it copied.
+- `ls` lists the pull requests of the current checkout, with the number of comments and the
+  author.
+
+### Apply
+
+To run the code of a pull request, or to continue its work, make a new branch from the branch
+that holds the pull request. Then run `todoer pr apply <pr>`.
+
+- `apply` puts the changes of the patch in the working tree and in the index. It does not commit.
+- `apply` stops when the current checkout has changes that are not committed.
+- `apply` first tries the patch on a copy of the git index. When the patch does not apply,
+  nothing changes.
+- To update the pull request, commit your changes. Then run
+  `todoer pr submit --branch <b> -n <pr> --update`. `apply` prints this command. Give `<b>`
+  yourself: todoer does not guess the branch.
 
 ### Merge
 
@@ -204,7 +220,7 @@ checkout of the branch that the pull request goes into. `submit` already put the
   of the branch, `merge` does not apply the patch again.
 - Else `merge` runs `git am --3way`. A base that moved is not a problem while the patch applies.
   When the patch does not apply, the branch does not change. Ask the author to rebase the branch
-  and run `todoer pr submit --update`.
+  and run `todoer pr submit -n <pr> --update`.
 - Then `merge` removes the folder and the todos of the pull request, and removes the todos from
   each `dependsOn`. It adds these changes to the commit of the patch, so the merge is one commit.
   When the changes were already on the branch, `merge` commits this as `todoer: merge <pr>`.

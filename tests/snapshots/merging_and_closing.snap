@@ -27,24 +27,24 @@ submitted second-try: 1 commit, 3 files, into main
 todos: fix-the-sum
 committed on main
 
-$ todoer pr submit --branch main -n third-try [cwd: fix-sum]
-exit code: 1
---- stderr
-error: the pull request of fix-sum is second-try - a submit cannot rename it to third-try
-
 $ todoer pr submit --branch main -n second-try [cwd: fix-sum]
 exit code: 1
 --- stderr
-error: the pull request second-try exists - pick another name, or use --update to replace its patch
+error: main already has the pull request second-try - use -n second-try --update to replace it, or another -n to make a new pull request
 
-$ todoer pr submit --branch main -n second-try --update -m 'From a new branch.' [cwd: fix-sum]
+$ todoer pr submit --branch main -n nope --update [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: main has no pull request nope - remove --update to make it. The open pull requests on main: second-try
+
+$ todoer pr submit --branch main -n second-try --update -m 'From a new branch.' --todo fix-the-sum [cwd: fix-sum]
 updated second-try: 1 commit, 3 files, into main
 .todoer/prs/second-try on main, in the checkout <tmp>/repo
 todos: fix-the-sum
 committed on main
 
 $ todoer pr ls && git log --format=%s -1 && git status --short
-second-try  no comments  fix-sum-2 -> main  me@example.com
+second-try  no comments  me@example.com
 todoer: update second-try
 
 $ todoer pr merge second-try
@@ -87,14 +87,14 @@ fn main() {
 $ todoer pr merge second-try
 exit code: 1
 --- stderr
-error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --update:
-Patch failed at 0001 Use three for b
+error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --branch main -n second-try --update:
+Patch failed at 0001 todoer: merge second-try
 error: Failed to merge in the changes.
 
 $ todoer pr merge second-try --no-commit
 exit code: 1
 --- stderr
-error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --update:
+error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --branch main -n second-try --update:
 Applied patch to 'src/app.rs' with conflicts.
 
 $ git log --format=%s -1 && git status --short
@@ -107,7 +107,7 @@ the review is not committed - when it is done, run: git add .todoer/prs/second-t
 $ todoer pr merge second-try
 exit code: 1
 --- stderr
-error: second-try has the unresolved comments c1 - the author must do what they ask, then run todoer pr submit --update
+error: second-try has the unresolved comments c1 - the author must do what they ask, then run todoer pr submit --branch main -n second-try --update
 
 $ todoer pr close second-try --no-commit && git status --short
 closed second-try

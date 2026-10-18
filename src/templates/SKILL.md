@@ -1,6 +1,6 @@
 ---
 name: todoer
-description: Claim todoer todos, implement them in a git worktree and submit the work as a todoer pull request, review a todoer pull request with the person, or address its review. Use when asked to work on todoer todos (files in .todoer/todos/, like .todoer/todos/fix-login.md) or on todoer pull requests in .todoer/prs/.
+description: Add todoer todos with the labels of the label rules, claim todoer todos, implement them in a git worktree and submit the work as a todoer pull request, review a todoer pull request with the person, or address its review. Use when asked to add a todo, an issue, a task or a bug in a project with a .todoer/ folder, to work on todoer todos (files in .todoer/todos/, like .todoer/todos/fix-login.md) or on todoer pull requests in .todoer/prs/.
 ---
 
 # todoer
@@ -103,8 +103,8 @@ and add the comments that the person asks for.
 
        todoer pr review <pr>
 
-   `pr.md` names the branch of the pull request in `into`, and the commit of the patch in `base`.
-   Note the path of this checkout.
+   The branch of this checkout is the branch that the pull request goes into (`<into>`). `pr.md`
+   names the commit of the patch in `base`. Note the path of this checkout.
 
 2. Make a new worktree and a new branch for the fix, with your tool or with git. Start it at
    `base`:
@@ -118,8 +118,8 @@ and add the comments that the person asks for.
 
        git am <checkout of into>/.todoer/prs/<pr>/pr.patch
 
-   The patch always applies on `base`. Do not apply it on the latest `into`: it can conflict. The
-   branch of the first work (`from`) is not necessary. The person can remove it after a submit.
+   The patch always applies on `base`. Do not apply it on the latest `<into>`: it can conflict. The
+   branch of the first work is not necessary. The person can remove it after a submit.
 
 4. Do the changes that the comments ask for. A comment can name a file that the pull request does
    not change yet: change that file too. For a rename or a move, use `git mv`. If a comment is not
@@ -127,12 +127,18 @@ and add the comments that the person asks for.
 
 5. Commit, then update the pull request:
 
-       todoer pr submit --branch <into> -n <pr> --update -m "<what you changed for each comment>"
+       todoer pr submit --branch <into> -n <pr> --update -m "<what the pull request changes and why>" --todo <name>
 
-   `--update` replaces the patch and removes the review. Do every comment first: todoer does not
-   check them. If you do not do a comment, say why in `-m`.
+   `-n <pr>` finds the pull request, so the name of your branch is not important. `--update`
+   writes the pull request again and removes the review. `-m` replaces the description and
+   `--todo` replaces the todos. Without them, the update keeps the old ones and says so. Do every
+   comment first: todoer does not
+   check them. If you do not do a comment, tell the person.
 
 ## Plan work for the person
+
+When the person asks you to add a todo, an issue, a task or a bug, add a todo with `todoer add`.
+Apply the label rules (see below).
 
     todoer add <name> -l <label> -d <name it depends on> "<what and how to check it>"
     todoer add <name> -D <label it depends on> "<what and how to check it>"
@@ -151,9 +157,10 @@ of a label, depend on the label: then a new todo with the label also blocks the 
 A label rule tells in plain words which todos must have a label. todoer does not read the rules.
 You apply them:
 
-1. After `todoer add`, run `todoer labels`. It prints the rule of each label below the label.
+1. Before `todoer add`, run `todoer labels`. It prints the rule of each label below the label.
 2. Read each rule, and compare it with the name and the text of the new todo.
-3. Run `todoer label add <name> <label>` for each rule that the todo matches.
+3. Give `-l <label>` to `todoer add` for each rule that the todo matches. For a todo that exists,
+   run `todoer label add <name> <label>`.
 4. Tell the person which labels you added and why. If a rule is not clear, ask the person.
 
 Also follow the rules when you change the text of a todo. Do not remove a label that the person

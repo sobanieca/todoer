@@ -17,15 +17,12 @@ const EXCLUDE_DATA: [&str; 3] = ["--", ".", ":(exclude).todoer"];
 pub const REVIEW: &str = "review.md";
 pub const PATCH: &str = "pr.patch";
 pub const DIFF: &str = "pr.diff";
-const UPDATE_HEADING: &str = "## Update";
 
 #[derive(Debug, Clone)]
 pub struct Pr {
     pub name: String,
     pub dir: PathBuf,
     pub author: String,
-    pub from: String,
-    pub into: String,
     pub base: String,
     pub todos: Vec<String>,
     pub doc: Document,
@@ -42,8 +39,6 @@ impl Pr {
             name: name.to_string(),
             dir: dir.to_path_buf(),
             author: doc.text("author").unwrap_or_default(),
-            from: doc.text("from").unwrap_or_default(),
-            into: doc.text("into").unwrap_or_default(),
             base: doc.text("base").unwrap_or_default(),
             todos: doc.list("todos"),
             doc,
@@ -56,8 +51,6 @@ impl Pr {
 
     fn render(&mut self) -> String {
         self.doc.set("author", &self.author);
-        self.doc.set("from", &self.from);
-        self.doc.set("into", &self.into);
         self.doc.set("base", &self.base);
         self.doc.set_list("todos", &self.todos);
         self.doc.render()
@@ -144,6 +137,29 @@ pub fn list(project: &Project) -> Result<Vec<Pr>, String> {
         .collect()
 }
 
+/// The open pull requests that name the todo in `todos`.
+pub fn of_todo<'a>(prs: &'a [Pr], name: &str) -> Vec<&'a Pr> {
+    prs.iter()
+        .filter(|pr| pr.todos.iter().any(|todo| todo == name))
+        .collect()
+}
+
+/// `pr: <name> (<n> comments), ...` for the pull requests of a todo.
+pub fn note(prs: &[&Pr]) -> Option<String> {
+    if prs.is_empty() {
+        return None;
+    }
+    let names: Vec<String> = prs
+        .iter()
+        .map(|pr| match pr.review().comments.len() {
+            0 => pr.name.clone(),
+            1 => format!("{} (1 comment)", pr.name),
+            count => format!("{} ({count} comments)", pr.name),
+        })
+        .collect();
+    Some(format!("pr: {}", names.join(", ")))
+}
+
 pub fn resolve(project: &Project, argument: &str) -> Result<Pr, String> {
     let name = argument
         .trim_end_matches('/')
@@ -165,18 +181,23 @@ pub enum Destination {
     Branch(String),
 }
 
+/// What an update copies from the old pull request, because the submit did not give it.
+#[derive(Default)]
+pub struct Kept {
+    pub description: bool,
+    pub todos: bool,
+}
+
 pub struct Submitted {
     pub pr: Pr,
+    pub into: String,
     pub created: bool,
+    pub kept: Kept,
     pub commits: usize,
     pub files: usize,
     pub cleared: Option<Review>,
     pub destination: Destination,
     pub plan: CommitPlan,
-}
-
-fn plural(count: usize, word: &str) -> String {
-    format!("{count} {word}{}", if count == 1 { "" } else { "s" })
 }
 
 pub struct SubmitOptions<'a> {
@@ -202,56 +223,17 @@ fn check_name(name: &str) -> Result<(), String> {
     }
 }
 
-fn free_name(root: &Path, taken: &[String], branch: &str, range: &str) -> Result<String, String> {
-    let mut log = vec!["log", "--reverse", "--format=%s", range];
-    log.extend(EXCLUDE_DATA);
-    let first_subject = git::text(root, &log)?
-        .lines()
-        .next()
-        .unwrap_or("")
-        .to_string();
-    let base_name = match slug(&first_subject, 40) {
-        name if name.is_empty() => slug(branch, 40),
-        name => name,
-    };
-    let base_name = if base_name.is_empty() {
-        "pr".to_string()
-    } else {
-        base_name
-    };
-    let mut name = base_name.clone();
-    let mut number = 2;
-    while taken.contains(&name) {
-        name = format!("{base_name}-{number}");
-        number += 1;
-    }
-    Ok(name)
+/// The message of the commit that `pr merge` puts on the branch.
+fn merge_message(name: &str) -> String {
+    format!("todoer: merge {name}")
 }
 
-fn squash_message(root: &Path, range: &str) -> Result<String, String> {
-    let mut log = vec!["log", "--reverse", "--format=%B%x00", range];
-    log.extend(EXCLUDE_DATA);
-    let text = git::text(root, &log)?;
-    let messages: Vec<&str> = text
-        .split('\0')
-        .map(str::trim)
-        .filter(|message| !message.is_empty())
-        .collect();
-    let subjects: Vec<&str> = messages
-        .iter()
-        .map(|message| message.lines().next().unwrap_or(""))
-        .collect();
-    Ok(match messages.as_slice() {
-        [] => "todoer: squash".to_string(),
-        [message] => format!("{message}\n"),
-        _ => {
-            let list: Vec<String> = subjects
-                .iter()
-                .map(|subject| format!("* {subject}"))
-                .collect();
-            format!("{}\n\n{}\n", subjects[0], list.join("\n"))
-        }
-    })
+fn open_names(into: &str, names: &[String]) -> String {
+    if names.is_empty() {
+        format!("{into} has no open pull requests")
+    } else {
+        format!("The open pull requests on {into}: {}", names.join(", "))
+    }
 }
 
 impl Destination {
@@ -345,8 +327,7 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
         read_todo(root, name)?;
     }
     check_clean(project, &branch)?;
-    let name = options.name.filter(|name| !name.trim().is_empty());
-    if let Some(name) = name {
+    if let Some(name) = options.name {
         check_name(name)?;
     }
     let lock = project.lock()?;
@@ -373,10 +354,17 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
             "there is no commit on {branch} after {into} - commit your work first"
         ));
     }
+    let names: Vec<String> = open.iter().map(|(pr, _)| pr.name.clone()).collect();
+    let name = options.name.ok_or_else(|| {
+        format!(
+            "a submit needs the name of the pull request - use -n <name> for a new pull request, or -n <pr> --update to replace an open one. {}",
+            open_names(&into, &names)
+        )
+    })?;
     let squashed = git::check_input(
         root,
         &["commit-tree", "HEAD^{tree}", "-p", &base, "-F", "-"],
-        &squash_message(root, &range)?,
+        &format!("{}\n", merge_message(name)),
     )?
     .stdout
     .trim()
@@ -392,93 +380,58 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
             "the commits on {branch} change no file outside {DATA_DIR}/"
         ));
     }
-    let author = git::user_email(root)?;
-    let of_branch = open.iter().find(|(pr, _)| pr.from == branch);
-    let existing = match (name, of_branch) {
-        (Some(name), Some((pr, _))) if pr.name != name => {
+    let existing = open.iter().find(|(pr, _)| pr.name == name);
+    let cleared = match (existing, options.update) {
+        (Some((_, review)), true) => Some(review.clone()),
+        (Some(_), false) => {
             return Err(format!(
-                "the pull request of {branch} is {} - a submit cannot rename it to {name}",
-                pr.name
+                "{into} already has the pull request {name} - use -n {name} --update to replace it, or another -n to make a new pull request"
             ));
         }
-        (Some(name), None) => match open.iter().find(|(pr, _)| pr.name == name) {
-            Some(_) if !options.update => {
-                return Err(format!(
-                    "the pull request {name} exists - pick another name, or use --update to replace its patch"
-                ));
-            }
-            found => found,
-        },
-        (_, found) => found,
+        (None, true) => {
+            return Err(format!(
+                "{into} has no pull request {name} - remove --update to make it. {}",
+                open_names(&into, &names)
+            ));
+        }
+        (None, false) => None,
     };
     let created = existing.is_none();
-    let cleared = match existing {
-        Some((pr, review)) => {
-            if !review.comments.is_empty() && !options.update {
-                return Err(format!(
-                    "{} is already submitted, and its review has {} - do what the comments ask, then run todoer pr submit --update to replace the patch and remove the review",
-                    pr.name,
-                    plural(review.comments.len(), "comment")
-                ));
-            }
-            Some(review.clone())
+    let old = existing.map(|(pr, _)| pr);
+    let mut kept = Kept::default();
+    let description = match (options.message, old) {
+        (Some(message), _) => message.trim().to_string(),
+        (None, Some(old)) => {
+            kept.description = !old.description().is_empty();
+            old.description().to_string()
         }
-        None => None,
+        (None, None) => String::new(),
     };
-    let target_dir = destination.prs_dir(project);
-    let mut pr = match existing {
-        Some((pr, _)) => {
-            let mut pr = pr.clone();
-            pr.dir = target_dir.join(&pr.name);
-            pr
+    let mut doc = Document::new();
+    if !description.is_empty() {
+        doc.body = format!("\n{description}\n");
+    }
+    let mut todos: Vec<String> = Vec::new();
+    match old {
+        Some(old) if options.todos.is_empty() => {
+            kept.todos = !old.todos.is_empty();
+            todos = old.todos.clone();
         }
-        None => {
-            let taken: Vec<String> = open.iter().map(|(pr, _)| pr.name.clone()).collect();
-            let name = match name {
-                Some(name) => name.to_string(),
-                None => free_name(root, &taken, &branch, &range)?,
-            };
-            Pr {
-                name: name.clone(),
-                dir: target_dir.join(&name),
-                author: author.clone(),
-                from: String::new(),
-                into: String::new(),
-                base: String::new(),
-                todos: Vec::new(),
-                doc: Document::new(),
+        _ => {
+            for name in options.todos {
+                if !todos.contains(name) {
+                    todos.push(name.clone());
+                }
             }
-        }
-    };
-    pr.from = branch;
-    pr.into = into.clone();
-    pr.base = base;
-    for name in options.todos {
-        if !pr.todos.contains(name) {
-            pr.todos.push(name.clone());
         }
     }
-    let message = options
-        .message
-        .map(str::trim)
-        .filter(|text| !text.is_empty());
-    let description = pr
-        .description()
-        .split(&format!("\n{UPDATE_HEADING}\n"))
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    let (description, update) = match (&cleared, message) {
-        (None, _) => (message.unwrap_or("").to_string(), String::new()),
-        (Some(_), Some(message)) => (description, format!("{UPDATE_HEADING}\n\n{message}")),
-        (Some(_), None) => (description, String::new()),
-    };
-    pr.doc.body = match (description.is_empty(), update.is_empty()) {
-        (true, true) => String::new(),
-        (false, true) => format!("\n{description}\n"),
-        (true, false) => format!("\n{update}\n"),
-        (false, false) => format!("\n{description}\n\n{update}\n"),
+    let mut pr = Pr {
+        name: name.to_string(),
+        dir: destination.prs_dir(project).join(name),
+        author: git::user_email(root)?,
+        base,
+        todos,
+        doc,
     };
     let pr_md = pr.render();
     let action = if created { "submit" } else { "update" };
@@ -521,7 +474,9 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
     let files = diff::parse(&diff_text).len();
     Ok(Submitted {
         pr,
+        into,
         created,
+        kept,
         commits,
         files,
         cleared,
@@ -557,29 +512,31 @@ pub struct Merged {
     pub plan: CommitPlan,
 }
 
-fn check_no_comments(pr: &Pr) -> Result<(), String> {
+fn check_no_comments(project: &Project, pr: &Pr) -> Result<(), String> {
     let comments = pr.review().comments;
     if comments.is_empty() {
         return Ok(());
     }
     let ids: Vec<&str> = comments.iter().map(|comment| comment.id.as_str()).collect();
     Err(format!(
-        "{} has the unresolved comments {} - the author must do what they ask, then run todoer pr submit --update",
+        "{} has the unresolved comments {} - the author must do what they ask, then run todoer pr submit --branch {} -n {} --update",
         pr.name,
-        ids.join(", ")
+        ids.join(", "),
+        project.branch_name()?,
+        pr.name
     ))
 }
 
-fn does_not_apply(project: &Project, output: &git::Output) -> Result<String, String> {
+fn does_not_apply(project: &Project, pr: &Pr, output: &git::Output) -> Result<String, String> {
+    let branch = project.branch_name()?;
     Ok(format!(
-        "the patch does not apply on {} - nothing changed. Ask the author to rebase the branch on {} and run todoer pr submit --update:\n{}",
-        project.branch_name()?,
-        project.branch_name()?,
+        "the patch does not apply on {branch} - nothing changed. Ask the author to rebase the branch on {branch} and run todoer pr submit --branch {branch} -n {} --update:\n{}",
+        pr.name,
         apply_message(output)
     ))
 }
 
-fn apply_to_working_tree(project: &Project, patch: &str) -> Result<(), String> {
+fn apply_to_working_tree(project: &Project, pr: &Pr, patch: &str) -> Result<(), String> {
     let root = &project.root;
     let index = git::git_path(root, "index")?;
     let trial = git::git_path(root, "todoer-trial-index")?;
@@ -591,11 +548,11 @@ fn apply_to_working_tree(project: &Project, patch: &str) -> Result<(), String> {
     let _ = std::fs::remove_file(&trial);
     let tried = tried?;
     if !tried.ok {
-        return Err(does_not_apply(project, &tried)?);
+        return Err(does_not_apply(project, pr, &tried)?);
     }
     let applied = git::run(root, &["apply", "--3way", patch])?;
     if !applied.ok {
-        return Err(does_not_apply(project, &applied)?);
+        return Err(does_not_apply(project, pr, &applied)?);
     }
     Ok(())
 }
@@ -603,7 +560,7 @@ fn apply_to_working_tree(project: &Project, patch: &str) -> Result<(), String> {
 pub fn merge(project: &Project, pr: &Pr, no_commit: bool) -> Result<Merged, String> {
     let root = &project.root;
     let lock = project.lock()?;
-    check_no_comments(pr)?;
+    check_no_comments(project, pr)?;
     let todos = Todos::load(root)?;
     let done: Vec<String> = pr
         .todos
@@ -620,10 +577,10 @@ pub fn merge(project: &Project, pr: &Pr, no_commit: bool) -> Result<Merged, Stri
         let result = git::run(root, &["am", "-q", "--3way", &patch])?;
         if !result.ok {
             let _ = git::run(root, &["am", "--abort"]);
-            return Err(does_not_apply(project, &result)?);
+            return Err(does_not_apply(project, pr, &result)?);
         }
     } else if !already {
-        apply_to_working_tree(project, &patch)?;
+        apply_to_working_tree(project, pr, &patch)?;
     }
     let mut changed = Vec::new();
     for name in &done {
@@ -649,7 +606,7 @@ pub fn merge(project: &Project, pr: &Pr, no_commit: bool) -> Result<Merged, Stri
     if plan.commit {
         own.extend(paths.iter().map(|name| todo_path(name)));
         if already {
-            project.commit(&lock, &format!("todoer: merge {}", pr.name), &own)?;
+            project.commit(&lock, &merge_message(&pr.name), &own)?;
         } else {
             project.amend(&lock, &own)?;
         }
@@ -661,6 +618,20 @@ pub fn merge(project: &Project, pr: &Pr, no_commit: bool) -> Result<Merged, Stri
         removed_labels,
         plan,
     })
+}
+
+/// Applies the patch to the working tree and the index of the current checkout, and does not
+/// commit. Then a person can run the code, or continue the work and submit with `--update`.
+pub fn apply(project: &Project, pr: &Pr) -> Result<bool, String> {
+    let root = &project.root;
+    let _lock = project.lock()?;
+    check_clean(project, &project.branch_name()?)?;
+    let patch = pr.dir.join(PATCH).to_string_lossy().into_owned();
+    let already = git::run(root, &["apply", "--reverse", "--check", &patch])?.ok;
+    if !already {
+        apply_to_working_tree(project, pr, &patch)?;
+    }
+    Ok(!already)
 }
 
 pub fn close(project: &Project, pr: &Pr, no_commit: bool) -> Result<CommitPlan, String> {

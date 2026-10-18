@@ -288,63 +288,54 @@ struct Progress<'a> {
     label: String,
     total: usize,
     in_progress: Vec<&'a Todo>,
-    available: Vec<&'a Todo>,
-    blocked: Vec<&'a Todo>,
+    in_pr: Vec<&'a Todo>,
+    not_started: Vec<&'a Todo>,
 }
 
-fn progress_of<'a>(todos: &'a Todos, label: &str, items: &[&'a Todo]) -> Progress<'a> {
+fn progress_of<'a>(
+    todos: &'a Todos,
+    open: &[prs::Pr],
+    label: &str,
+    items: &[&'a Todo],
+) -> Progress<'a> {
     let names: Vec<String> = items.iter().map(|todo| todo.name.clone()).collect();
     let mut progress = Progress {
         label: label.to_string(),
         total: items.len(),
         in_progress: Vec::new(),
-        available: Vec::new(),
-        blocked: Vec::new(),
+        in_pr: Vec::new(),
+        not_started: Vec::new(),
     };
     for name in todos.ordered(&names) {
         let Some(todo) = todos.get(&name) else {
             continue;
         };
-        match todos.state(todo) {
-            "in-progress" => progress.in_progress.push(todo),
-            "available" => progress.available.push(todo),
-            _ => progress.blocked.push(todo),
+        if !prs::of_todo(open, &todo.name).is_empty() {
+            progress.in_pr.push(todo);
+        } else if todos.state(todo) == "in-progress" {
+            progress.in_progress.push(todo);
+        } else {
+            progress.not_started.push(todo);
         }
     }
     progress
 }
 
-fn percent(progress: &Progress) -> usize {
-    (progress.in_progress.len() * 100)
-        .checked_div(progress.total)
-        .unwrap_or(0)
-}
-
 fn headline(progress: &Progress, width: usize) -> String {
     let bar_width = progress.total.clamp(1, 20);
-    let filled = (progress.in_progress.len() * bar_width)
-        .checked_div(progress.total)
-        .unwrap_or(0);
+    let part = |count: usize| (count * bar_width).checked_div(progress.total).unwrap_or(0);
+    let in_pr = part(progress.in_pr.len());
+    let in_progress = part(progress.in_progress.len());
     format!(
-        "{}  {}/{} in progress ({}%)  [{}{}]",
+        "{}  {} in progress, {} in a pull request, {} not started  [{}{}{}]",
         colors::pad(&colors::bold(&progress.label), width),
         progress.in_progress.len(),
-        progress.total,
-        percent(progress),
-        colors::yellow(&"#".repeat(filled)),
-        "-".repeat(bar_width - filled)
+        progress.in_pr.len(),
+        progress.not_started.len(),
+        colors::green(&"#".repeat(in_pr)),
+        colors::yellow(&"=".repeat(in_progress)),
+        "-".repeat(bar_width - in_pr - in_progress)
     )
-}
-
-fn pr_note(prs: &[prs::Pr], todo: &Todo) -> Option<String> {
-    let pr = prs
-        .iter()
-        .find(|pr| pr.todos.iter().any(|name| name == &todo.name))?;
-    match pr.review().comments.len() {
-        0 => Some(format!("pr: {}", pr.name)),
-        1 => Some(format!("pr: {}, 1 comment", pr.name)),
-        count => Some(format!("pr: {}, {count} comments", pr.name)),
-    }
 }
 
 pub fn progress(args: &Args) -> Result<(), String> {
@@ -352,11 +343,12 @@ pub fn progress(args: &Args) -> Result<(), String> {
     let project = Project::find()?;
     let todos = Todos::load(&project.root)?;
     todos.print_warnings();
+    let open = prs::list(&project)?;
     let map = label_counts(&todos);
     let Some(label) = args.positional.first() else {
         let all: Vec<Progress> = map
             .iter()
-            .map(|(label, items)| progress_of(&todos, label, items))
+            .map(|(label, items)| progress_of(&todos, &open, label, items))
             .collect();
         if args.has("json") {
             let items = all
@@ -364,12 +356,16 @@ pub fn progress(args: &Args) -> Result<(), String> {
                 .map(|progress| {
                     Value::object(vec![
                         ("label", Value::str(&progress.label)),
+                        ("total", Value::Number(progress.total as f64)),
                         (
                             "inProgress",
                             Value::Number(progress.in_progress.len() as f64),
                         ),
-                        ("total", Value::Number(progress.total as f64)),
-                        ("percent", Value::Number(percent(progress) as f64)),
+                        ("inPullRequest", Value::Number(progress.in_pr.len() as f64)),
+                        (
+                            "notStarted",
+                            Value::Number(progress.not_started.len() as f64),
+                        ),
                     ])
                 })
                 .collect();
@@ -388,8 +384,7 @@ pub fn progress(args: &Args) -> Result<(), String> {
     let items = map
         .get(label)
         .ok_or_else(|| format!("no todo has the label {label} - run todoer labels"))?;
-    let progress = progress_of(&todos, label, items);
-    let prs = prs::list(&project).unwrap_or_default();
+    let progress = progress_of(&todos, &open, label, items);
     let outside = |name: &String| {
         todos
             .get(name)
@@ -400,10 +395,15 @@ pub fn progress(args: &Args) -> Result<(), String> {
             Value::Array(
                 list.iter()
                     .map(|todo| {
+                        let names: Vec<String> = prs::of_todo(&open, &todo.name)
+                            .iter()
+                            .map(|pr| pr.name.clone())
+                            .collect();
                         Value::object(vec![
                             ("name", Value::str(&todo.name)),
+                            ("state", Value::str(todos.state(todo))),
                             ("assignee", Value::opt(todo.assignee.as_deref())),
-                            ("pr", Value::opt(pr_note(&prs, todo).as_deref())),
+                            ("prs", Value::strings(&names)),
                             ("waitsFor", Value::strings(&todos.waits_for(todo))),
                         ])
                     })
@@ -413,10 +413,9 @@ pub fn progress(args: &Args) -> Result<(), String> {
         let value = Value::object(vec![
             ("label", Value::str(label)),
             ("total", Value::Number(progress.total as f64)),
-            ("percent", Value::Number(percent(&progress) as f64)),
             ("inProgress", list_json(&progress.in_progress)),
-            ("available", list_json(&progress.available)),
-            ("blocked", list_json(&progress.blocked)),
+            ("inPullRequest", list_json(&progress.in_pr)),
+            ("notStarted", list_json(&progress.not_started)),
         ]);
         println!("{}", json::stringify(&value));
         return Ok(());
@@ -425,15 +424,15 @@ pub fn progress(args: &Args) -> Result<(), String> {
     let width = progress
         .in_progress
         .iter()
-        .chain(&progress.available)
-        .chain(&progress.blocked)
+        .chain(&progress.in_pr)
+        .chain(&progress.not_started)
         .map(|todo| todo.name.len())
         .max()
         .unwrap_or(0);
     let sections = [
         ("in progress", &progress.in_progress),
-        ("available", &progress.available),
-        ("blocked", &progress.blocked),
+        ("in a pull request", &progress.in_pr),
+        ("not started", &progress.not_started),
     ];
     for (name, list) in sections {
         if list.is_empty() {
@@ -443,21 +442,21 @@ pub fn progress(args: &Args) -> Result<(), String> {
         println!("{name} ({})", list.len());
         for todo in list.iter() {
             let mut notes = Vec::new();
-            if name == "blocked" {
-                for name in todos.waits_for(todo) {
-                    let suffix = if outside(&name) {
-                        "  (outside label)"
-                    } else {
-                        ""
-                    };
-                    notes.push(format!("waits for {name}{suffix}"));
+            match todos.state(todo) {
+                "blocked" => {
+                    for name in todos.waits_for(todo) {
+                        let suffix = if outside(&name) {
+                            "  (outside label)"
+                        } else {
+                            ""
+                        };
+                        notes.push(format!("waits for {name}{suffix}"));
+                    }
                 }
-            } else if let Some(assignee) = &todo.assignee {
-                notes.push(assignee.clone());
+                "available" => notes.push("available".to_string()),
+                _ => notes.extend(todo.assignee.clone()),
             }
-            if let Some(note) = pr_note(&prs, todo) {
-                notes.push(note);
-            }
+            notes.extend(prs::note(&prs::of_todo(&open, &todo.name)));
             let line = format!(
                 "  {}  {}",
                 colors::pad(&todo.name, width),

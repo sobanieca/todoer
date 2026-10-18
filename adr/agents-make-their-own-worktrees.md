@@ -20,7 +20,9 @@ know.
   the commit with `git am .todoer/prs/<pr>/pr.patch`. The patch always applies on `base`. Then
   `pr submit -n <pr> --update` continues the pull request from the new branch.
 - There is no `pr restore` or `pr checkout`. These commands would make a branch or a worktree
-  without the preparation of the agent tool.
+  without the preparation of the agent tool. `pr apply` only changes the working tree of the
+  current checkout (see
+  [apply-a-pull-request-to-the-working-tree](apply-a-pull-request-to-the-working-tree.md)).
 
 ## Consequences
 

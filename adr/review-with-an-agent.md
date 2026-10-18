@@ -20,4 +20,4 @@ the patch and add the comments that a person asks for.
 ## Consequences
 
 - The review needs no branch and no worktree. Only `.todoer/prs/<name>/` is necessary.
-- To run the code of a pull request, apply `pr.patch` with `git am` on a branch of your own.
+- To run the code of a pull request, run `todoer pr apply <pr>` on a branch of your own.

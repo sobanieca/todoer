@@ -1,13 +1,18 @@
-$ todoer pr submit --branch main --no-commit [cwd: fix-sum]
+$ todoer pr submit --branch main -n use-three-for-b --no-commit [cwd: fix-sum]
 exit code: 1
 --- stderr
 error: main is not checked out, so todoer can only commit the pull request on it - check out main, or remove --no-commit
 
-$ todoer pr submit --branch main --todo fix-the-sum [cwd: fix-sum]
+$ todoer pr submit --branch main -n use-three-for-b --todo fix-the-sum [cwd: fix-sum]
 submitted use-three-for-b: 1 commit, 3 files, into main
 .todoer/prs/use-three-for-b on main
 todos: fix-the-sum
 committed on main
+
+$ todoer pr submit --branch main -n use-three-for-b [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: main already has the pull request use-three-for-b - use -n use-three-for-b --update to replace it, or another -n to make a new pull request
 
 $ git log --format=%s -2 main && git status --short && todoer pr ls
 todoer: submit use-three-for-b
@@ -15,12 +20,12 @@ todoer: claim fix-the-sum
 no open pull requests
 
 $ git switch -q main && todoer pr ls && todoer pr merge use-three-for-b
-use-three-for-b  no comments  fix-sum -> main  me@example.com
+use-three-for-b  no comments  me@example.com
 merged use-three-for-b into main
 done: fix-the-sum
 
 $ git log --format=%s -3 && git status --short && todoer ls
-Use three for b
+todoer: merge use-three-for-b
 todoer: submit use-three-for-b
 todoer: claim fix-the-sum
 no todos

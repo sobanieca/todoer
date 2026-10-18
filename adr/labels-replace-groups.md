@@ -11,8 +11,9 @@ and every markdown tool can show it.
 
 - A label exists while one todo has it, or while it has a rule (see
   [label-rules](label-rules.md)). A pull request has the labels of its todos.
-- `todoer progress <label>` counts the todos with an assignee, of the todos with the label that
-  exist now. It lists the todos in dependency order, and marks a blocking todo without the label.
+- `todoer progress <label>` puts the todos with the label that exist now in three groups: in
+  progress, in a pull request and not started. It lists the todos in dependency order, and marks
+  a blocking todo without the label.
 
 ## Consequences
 

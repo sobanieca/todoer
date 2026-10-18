@@ -17,7 +17,7 @@ target for the whole pull request.**
 - `path:old:line` must be a line of the diff.
 - A file target or a folder target must be in the pull request or in its base.
 - A line comment keeps the text of its lines, so an agent sees it without the diff.
-- The review is one file, `review.md`, in markdown. See `the-review-is-for-the-latest-patch`.
+- The review is one file, `review.md`, in markdown. See `an-update-replaces-the-pull-request`.
 - `pr comment` writes the review file and does not commit it. The person commits it when the
   review is done, so each review is one commit. See `a-merge-is-the-approval`.
 

@@ -6,7 +6,7 @@ todoer writes plain files. A person and an agent can read all of them. Commit th
 .todoer/
   todos/<name>.md               a todo: optional front matter and a description
   prs/<name>/
-    pr.md                       author, from, into, base, todos, the description
+    pr.md                       author, base, todos, the description
     pr.patch                    the latest submit as one squashed commit, for git am
     pr.diff                     the combined diff of the latest submit, for the review
     review.md                   the review of the latest patch: the comments
@@ -52,7 +52,7 @@ Do not add it to a todo that only changes the docs of the login.
 ```
 
 - The file name is the label. It matches `^[a-z0-9-]+$`. The body is the rule.
-- todoer does not read the rule. The agent reads it after `todoer add`, and adds the label to each
+- todoer does not read the rule. The agent reads it before `todoer add`, and adds the label to each
   todo that the rule matches.
 - `todoer labels rule` writes the file. `todoer labels rm` and `todoer labels mv` remove and rename
   it. They do not commit. Commit the rules as other files.
@@ -63,24 +63,19 @@ Do not add it to a todo that only changes the docs of the login.
 ```markdown
 ---
 author: you@example.com
-from: fix-login
-into: main
 base: 3f2a91c0d8e6b3c7a1d2e4f5a6b7c8d9e0f1a2b3
 todos: [fix-the-login-crash]
 ---
 
 What changed and why.
-
-## Update
-
-What changed for the last review.
 ```
 
 - The name of the folder matches `^[a-z0-9-]+$`. It is the id and the title of the pull request.
 
-- `from` is the branch of the work. `into` is the branch that the pull request goes into, from
-  `--branch`. `base` is the merge base of the latest submit.
-- The first `-m` is the description. The `-m` of each later submit replaces `## Update`.
+- `base` is the merge base of the latest submit. `pr.md` does not name a branch. The pull request
+  goes into the branch that holds the folder. It does not need the branch of the work.
+- The body is the description, from `-m`. `--update` writes the whole file again. It copies the
+  description and the todos of the old file when `-m` or `--todo` is not given.
 
 ## A review - `review.md`
 

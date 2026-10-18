@@ -628,7 +628,8 @@
       color: var(--done);
       background: var(--done-soft);
     }
-    .st .short {
+    .st .short,
+    .ptext .short {
       display: none;
     }
     .card.is-done .box {
@@ -713,8 +714,12 @@
       .stage-bar .dir-name {
         display: none;
       }
-      .st .short {
+      .st .short,
+      .ptext .short {
         display: inline;
+      }
+      .ptext .long {
+        display: none;
       }
     }
 
@@ -1195,7 +1200,7 @@
       font-size: 15px;
     }
     .lane-card p code {
-      white-space: nowrap;
+      overflow-wrap: anywhere;
     }
     @media (max-width: 560px) {
       .lane-card p {
@@ -1602,7 +1607,7 @@
         <div class="stage" id="stage" aria-label="Animated example: agent 1 claims a todo for you and submits a pull request into main, agent 2 reviews it with you and you commit the review, agent 1 updates the pull request, and you merge it">
           <div class="stage-bar">
             <span class="where"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><span class="dir-name">~/code/my-project</span></span>
-            <span class="progress" title="todoer progress auth"><span class="meter"><b id="meter"></b></span><span class="ptext" id="ptext">auth 0/2 in progress (0%)</span></span>
+            <span class="progress" title="todoer progress auth"><span class="meter"><b id="meter"></b></span><span class="ptext" id="ptext"></span></span>
           </div>
 
           <div class="board" id="board">
@@ -1703,26 +1708,20 @@ The app stops after the third retry.</pre>
 Limit the sign-in attempts for each account.</pre>
             </div>
             <div class="fv" data-file="prmd" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.md</span><p>The pull request. The folder name is its id and its title. <code>pr.md</code> holds the author, the branch of the work (<code>from</code>), the branch that it goes into (<code>into</code>), the base and the todos. <code>-m</code> of a later submit writes the <code>## Update</code> section.</p></div>
+              <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.md</span><p>The pull request. The folder name is its id and its title. <code>pr.md</code> holds the author, the base and the todos. It names no branch: the branch that holds the folder is the branch that it goes into. <code>--update</code> writes the whole file again, and keeps the old description and todos when you do not give new ones.</p></div>
 <pre><span class="fm">---</span>
 <span class="k">author:</span> you@example.com
-<span class="k">from:</span> fix-login
-<span class="k">into:</span> main
 <span class="k">base:</span> f9582bb76d212ae8cfec79eeb2ced593240cf464
 <span class="k">todos:</span> [fix-the-login-crash]
 <span class="fm">---</span>
 
-Use the retry constant.
-
-<span class="hd">## Update</span>
-
-Added the test.</pre>
+Use the retry constant. Add a test.</pre>
             </div>
             <div class="fv" data-file="prpatch" hidden>
               <div class="viewer-head"><span class="fp">.todoer/prs/fix-the-login-crash/pr.patch</span><p>The latest submit as one squashed commit. <code>todoer pr merge</code> applies it on the current branch with <code>git am --3way</code>. Next to it, <code>pr.diff</code> holds the combined diff for the review.</p></div>
 <pre><span class="fm">From 5a49e712aa8c0b763a4057f2910c84ea08044048 Mon Sep 17 00:00:00 2001
 From: You &lt;you@example.com&gt;
-Subject: [PATCH] Fix the login crash</span>
+Subject: [PATCH] todoer: merge fix-the-login-crash</span>
 
 diff --git a/src/auth.rs b/src/auth.rs
 --- a/src/auth.rs
@@ -1743,7 +1742,7 @@ diff --git a/src/auth.rs b/src/auth.rs
 Add a test for the retry path.</pre>
             </div>
             <div class="fv" data-file="rule" hidden>
-              <div class="viewer-head"><span class="fp">.todoer/labels/auth.md</span><p>A label rule. The file name is the label. The text tells in plain words which todos must have the label. todoer does not read it: the agent reads the rules after <code>todoer add</code> and adds the labels.</p></div>
+              <div class="viewer-head"><span class="fp">.todoer/labels/auth.md</span><p>A label rule. The file name is the label. The text tells in plain words which todos must have the label. todoer does not read it: the agent reads the rules before <code>todoer add</code> and adds the labels that match.</p></div>
 <pre>Add this label to a todo that changes the login,
 the sessions or the tokens.
 Do not add it to a todo that only changes the docs.</pre>
@@ -1780,9 +1779,9 @@ Do not add it to a todo that only changes the docs.</pre>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Labels show the progress</h3>
-                <p>A label groups related todos. <code>progress</code> lists them in dependency order. A label rule tells the agent in plain words which todos get the label.</p>
+                <p>A label groups related todos. <code>progress</code> shows which are in progress, in a pull request or not started. A label rule tells the agent in plain words which todos get the label.</p>
                 <pre>$ todoer progress auth
-auth  1/2 in progress (50%)  [#-]</pre>
+auth  1 in progress, 0 in a pull request, 1 not started  [=-]</pre>
               </div>
             </div>
           </div>
@@ -1795,7 +1794,7 @@ auth  1/2 in progress (50%)  [#-]</pre>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Agents work in worktrees</h3>
-                <p>One command for the agent: <code>pr submit --branch main</code> squashes every commit since the work started from <code>main</code> into one, and commits the pull request on <code>main</code>. There is nothing to push and no hosting service.</p>
+                <p>One command for the agent: <code>pr submit --branch main -n &lt;name&gt;</code> squashes every commit since the work started from <code>main</code> into one, and commits the pull request on <code>main</code>. There is nothing to push and no hosting service.</p>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>One command makes it a skill</h3>
@@ -1804,15 +1803,19 @@ auth  1/2 in progress (50%)  [#-]</pre>
             </div>
           </div>
           <div class="lane">
-            <div class="lane-head"><span>review</span><span class="count">3</span></div>
+            <div class="lane-head"><span>review</span><span class="count">4</span></div>
             <div class="lane-cards">
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A pull request is a patch</h3>
-                <p>The pull request lands on your branch, so you review and merge it there. <code>pr merge</code> applies the patch and removes the pull request and its todos. On a conflict, nothing changes.</p>
+                <p>The pull request lands on your branch, so you review and merge it there. <code>pr merge</code> applies the patch and removes the pull request and its todos, in one commit: <code>todoer: merge &lt;name&gt;</code>. On a conflict, nothing changes.</p>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>A merge is the approval</h3>
-                <p>There is no approve and no verdict. A committed review asks for changes. <code>pr submit --update</code> replaces the patch and removes the review. <code>pr merge</code> stops while the review has a comment.</p>
+                <p>There is no approve and no verdict. A committed review asks for changes. <code>pr submit -n &lt;pr&gt; --update</code> writes the whole pull request again and removes the review. <code>pr merge</code> stops while the review has a comment.</p>
+              </div>
+              <div class="lane-card">
+                <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Try a pull request of anyone</h3>
+                <p>On a branch of your own, <code>pr apply &lt;pr&gt;</code> puts the patch in your working tree, with no commit. Run the code, or change it and update the pull request with <code>-n &lt;pr&gt; --update</code>.</p>
               </div>
               <div class="lane-card">
                 <h3><span class="box"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>Code areas in the summary</h3>
@@ -1877,10 +1880,10 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         <ol class="steps">
           <li><strong>Claim</strong>Tell your agent: &ldquo;claim <code>fix-the-login-crash</code>&rdquo;, a list of todos, or a label. <code>todoer claim</code> assigns the todos to you and commits them on your branch. Push the commit when you want.</li>
           <li><strong>Implement in a worktree</strong>&ldquo;Implement it in a worktree.&rdquo; The agent makes a new branch from your branch, writes the code and commits.</li>
-          <li><strong>Submit into your branch</strong>One command: <code>todoer pr submit --branch main</code>. It squashes every commit since the work started from <code>main</code> into one, and commits the pull request on <code>main</code>. Name any branch.</li>
+          <li><strong>Submit into your branch</strong>One command: <code>todoer pr submit --branch main -n &lt;name&gt;</code>. It squashes every commit since the work started from <code>main</code> into one, and commits the pull request on <code>main</code>. Name any branch.</li>
           <li><strong>Review</strong>Ask another agent to explain the patch and to add your comments with <code>todoer pr comment</code>. Then commit the review.</li>
-          <li><strong>Update</strong>Ask an agent to do the comments. It restores the patch in a new worktree, so the first branch can be gone. Then it runs <code>todoer pr submit --branch main -n &lt;pr&gt; --update</code>, which replaces the patch and removes the review.</li>
-          <li><strong>Merge</strong><code>todoer pr merge &lt;pr&gt;</code>. There is no approve: a merge accepts the pull request. It stops while the review has comments.</li>
+          <li><strong>Update</strong>Ask an agent to do the comments. It restores the patch in a new worktree, so the first branch can be gone. Then it runs <code>todoer pr submit --branch main -n &lt;pr&gt; --update</code>, which writes the whole pull request again and removes the review.</li>
+          <li><strong>Merge</strong><code>todoer pr merge &lt;pr&gt;</code>. There is no approve: a merge accepts the pull request. It adds one commit, <code>todoer: merge &lt;pr&gt;</code>, and stops while the review has comments.</li>
         </ol>
       </section>
 
@@ -1997,10 +2000,13 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         commitEl.innerHTML = "<b>" + hash + "</b> <span class=\"msg\"></span>";
         commitEl.querySelector(".msg").textContent = msg;
       }
-      function setProgress(active, total) {
-        var pct = Math.round((active / total) * 100);
-        meter.style.width = pct + "%";
-        ptext.textContent = "auth " + active + "/" + total + " in progress (" + pct + "%)";
+      function setProgress(working, inPr, total) {
+        var started = working + inPr;
+        meter.style.width = Math.round((started / total) * 100) + "%";
+        ptext.innerHTML = both(
+          "auth " + working + " in progress, " + inPr + " in a pull request, " + (total - started) + " not started",
+          "auth " + started + "/" + total + " started"
+        );
       }
 
       function line(cls, html) {
@@ -2029,7 +2035,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
             move(cards.login, "progress");
             cards.login.classList.add("owned");
             setStatus(cards.login, "claimed", "claimed");
-            setProgress(1, 2);
+            setProgress(1, 0, 2);
             hot(cards.login);
             addCommit("4c1d2e7", "todoer: claim fix-the-login-crash", true);
           }
@@ -2037,7 +2043,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         { note: "# agent 1 writes the code in a worktree, on a new branch from main, and commits" },
         {
           who: "agent1",
-          cmd: "todoer pr submit --branch main --todo fix-the-login-crash",
+          cmd: "todoer pr submit --branch main -n fix-the-login-crash --todo fix-the-login-crash",
           out: [
             '<span class="ok">submitted</span> fix-the-login-crash: 1 commit, 2 files, into main',
             "committed on main"
@@ -2045,6 +2051,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
           apply: function () {
             move(cards.login, "pr");
             setStatus(cards.login, "pending", "no comments");
+            setProgress(0, 1, 2);
             hot(cards.login);
             addCommit("2a397f4", "todoer: submit fix-the-login-crash", true);
           }
@@ -2071,9 +2078,10 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         },
         {
           who: "agent1",
-          cmd: 'todoer pr submit --branch main -n fix-the-login-crash --update -m "Added the test"',
+          cmd: 'todoer pr submit --branch main -n fix-the-login-crash --update -m "Use the retry constant. Add a test."',
           out: [
             '<span class="ok">updated</span> fix-the-login-crash: 2 commits squashed to 1, 2 files, into main',
+            "kept the todos of the old pull request - give --todo to replace them",
             "removed the review (1 comment) - git history keeps it"
           ],
           apply: function () {
@@ -2090,12 +2098,12 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
             "done: fix-the-login-crash"
           ],
           apply: function () {
-            addCommit("03667af", "Fix the login crash", false);
+            addCommit("03667af", "todoer: merge fix-the-login-crash", true);
             move(cards.login, "done");
             cards.login.classList.remove("owned");
             cards.login.classList.add("is-done");
             setStatus(cards.login, "done", "done");
-            setProgress(0, 1);
+            setProgress(0, 0, 1);
             later(function () {
               flip(function () {
                 cards.rate.classList.remove("is-blocked");
@@ -2118,7 +2126,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
         setStatus(cards.login, "available", "available");
         setStatus(cards.rate, "blocked", LOCK + "blocked");
         counts();
-        setProgress(0, 2);
+        setProgress(0, 0, 2);
         dots.innerHTML = "<i></i><i></i>";
         commitEl.innerHTML = '<b>83f9b44</b> <span class="msg">Plan the auth work</span>';
         term.innerHTML = "";

@@ -51,7 +51,8 @@ $ todoer ls --label ui --json
     "waitsFor": [
       "move-sessions",
       "move-tokens"
-    ]
+    ],
+    "prs": []
   }
 ]
 
@@ -129,9 +130,9 @@ dependsOnLabels: [auth]
 Build the page.
 
 $ todoer progress ui
-ui  0/1 in progress (0%)  [-]
+ui  0 in progress, 0 in a pull request, 1 not started  [-]
 
-blocked (1)
+not started (1)
   new-login-page  waits for move-sessions  (outside label)  waits for move-tokens  (outside label)
 
 $ todoer done move-tokens

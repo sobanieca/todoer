@@ -7,6 +7,7 @@ use crate::frontmatter::Document;
 use crate::git;
 use crate::json::{self, Value};
 use crate::project::{CommitPlan, Lock, Project, write_file};
+use crate::prs::{self, Pr};
 use crate::rules::Rules;
 use crate::terminal;
 use crate::todos::{
@@ -40,10 +41,11 @@ fn state_rank(state: &str) -> usize {
 
 struct Listing<'a> {
     todos: &'a Todos,
+    prs: &'a [Pr],
     rows: Vec<(&'a Todo, &'static str)>,
 }
 
-fn select<'a>(todos: &'a Todos, args: &Args, me: Option<&str>) -> Listing<'a> {
+fn select<'a>(todos: &'a Todos, prs: &'a [Pr], args: &Args, me: Option<&str>) -> Listing<'a> {
     let label = args.value("label");
     let mut rows: Vec<(&Todo, &'static str)> = todos
         .items
@@ -58,7 +60,7 @@ fn select<'a>(todos: &'a Todos, args: &Args, me: Option<&str>) -> Listing<'a> {
             .cmp(&state_rank(b.1))
             .then_with(|| a.0.name.cmp(&b.0.name))
     });
-    Listing { todos, rows }
+    Listing { todos, prs, rows }
 }
 
 fn print_rows(listing: &Listing, indent: &str) {
@@ -69,10 +71,15 @@ fn print_rows(listing: &Listing, indent: &str) {
         .max()
         .unwrap_or(0);
     for (todo, state) in &listing.rows {
-        let extra = match *state {
-            "blocked" => format!("waits for {}", listing.todos.waits_summary(todo).join(", ")),
-            _ => todo.assignee.clone().unwrap_or_default(),
+        let mut notes = match *state {
+            "blocked" => vec![format!(
+                "waits for {}",
+                listing.todos.waits_summary(todo).join(", ")
+            )],
+            _ => todo.assignee.iter().cloned().collect(),
         };
+        notes.extend(prs::note(&prs::of_todo(listing.prs, &todo.name)));
+        let extra = notes.join("  ");
         let line = format!(
             "{indent}{}  {}  {}",
             state_color(state, &colors::pad(state, 11)),
@@ -83,7 +90,16 @@ fn print_rows(listing: &Listing, indent: &str) {
     }
 }
 
-pub fn todo_json(todos: &Todos, todo: &Todo, state: &str) -> Vec<(&'static str, Value)> {
+pub fn todo_json(
+    todos: &Todos,
+    prs: &[Pr],
+    todo: &Todo,
+    state: &str,
+) -> Vec<(&'static str, Value)> {
+    let names: Vec<String> = prs::of_todo(prs, &todo.name)
+        .iter()
+        .map(|pr| pr.name.clone())
+        .collect();
     vec![
         ("name", Value::str(&todo.name)),
         ("state", Value::str(state)),
@@ -92,6 +108,7 @@ pub fn todo_json(todos: &Todos, todo: &Todo, state: &str) -> Vec<(&'static str, 
         ("dependsOn", Value::strings(&todo.depends_on)),
         ("dependsOnLabels", Value::strings(&todo.depends_on_labels)),
         ("waitsFor", Value::strings(&todos.waits_for(todo))),
+        ("prs", Value::strings(&names)),
     ]
 }
 
@@ -112,12 +129,13 @@ pub fn ls(args: &Args) -> Result<(), String> {
     } else {
         None
     };
-    let listing = select(&todos, args, me.as_deref());
+    let open = prs::list(&project)?;
+    let listing = select(&todos, &open, args, me.as_deref());
     if args.has("json") {
         let items = listing
             .rows
             .iter()
-            .map(|(todo, state)| Value::object(todo_json(&todos, todo, state)))
+            .map(|(todo, state)| Value::object(todo_json(&todos, &open, todo, state)))
             .collect();
         println!("{}", json::stringify(&Value::Array(items)));
         return Ok(());
@@ -176,7 +194,9 @@ fn ls_projects(args: &Args, folder: &Path) -> Result<(), String> {
             .map(|part| part.as_os_str().to_string_lossy().into_owned())
             .collect::<Vec<_>>()
             .join("/");
-        let branch = Project::find_from(root)?.branch_name()?;
+        let project = Project::find_from(root)?;
+        let branch = project.branch_name()?;
+        let open = prs::list(&project)?;
         let todos = Todos::load(root)?;
         for problem in todos.problems() {
             crate::logger::warn(&format!("{name}: {problem}"));
@@ -186,14 +206,14 @@ fn ls_projects(args: &Args, folder: &Path) -> Result<(), String> {
         } else {
             None
         };
-        let listing = select(&todos, args, me.as_deref());
+        let listing = select(&todos, &open, args, me.as_deref());
         if args.has("json") {
             for (todo, state) in &listing.rows {
                 let mut fields = vec![
                     ("project", Value::str(&name)),
                     ("branch", Value::str(&branch)),
                 ];
-                fields.extend(todo_json(&todos, todo, state));
+                fields.extend(todo_json(&todos, &open, todo, state));
                 items.push(Value::object(fields));
             }
             continue;

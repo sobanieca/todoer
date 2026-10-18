@@ -1,4 +1,4 @@
-//! `todoer pr ...`: submit, ls, merge, close, summary, details, comment and review.
+//! `todoer pr ...`: submit, ls, merge, apply, close, summary, details, comment and review.
 
 use crate::areas::{Areas, Filter};
 use crate::args::{self, Args, Flag, option, switch};
@@ -42,7 +42,7 @@ const DETAILS_FLAGS: &[Flag] = &[
 const SUBS: &[Sub] = &[
     Sub {
         name: "submit",
-        usage: "todoer pr submit --branch <branch> [-n <name>] [-m <text>] [--todo <name>]... [--update] [--no-commit]",
+        usage: "todoer pr submit --branch <branch> -n <name> [-m <text>] [--todo <name>]... [--update] [--no-commit]",
         flags: SUBMIT_FLAGS,
         run: submit,
     },
@@ -57,6 +57,12 @@ const SUBS: &[Sub] = &[
         usage: "todoer pr merge <pr> [--no-commit]",
         flags: COMMIT_FLAGS,
         run: merge,
+    },
+    Sub {
+        name: "apply",
+        usage: "todoer pr apply <pr>",
+        flags: NO_FLAGS,
+        run: apply,
     },
     Sub {
         name: "close",
@@ -154,19 +160,25 @@ fn submit(args: &Args) -> Result<(), String> {
         "{what} {}: {commits}, {}, into {}",
         pr.name,
         plural(result.files, "file"),
-        pr.into
+        result.into
     );
     match &result.destination {
         Destination::Checkout(target) => println!(
             "{} on {}, in the checkout {}",
             pr.rel_dir(),
-            pr.into,
+            result.into,
             target.root.display()
         ),
-        Destination::Branch(_) => println!("{} on {}", pr.rel_dir(), pr.into),
+        Destination::Branch(_) => println!("{} on {}", pr.rel_dir(), result.into),
     }
     if !pr.todos.is_empty() {
         println!("todos: {}", pr.todos.join(", "));
+    }
+    if result.kept.description {
+        println!("kept the description of the old pull request - give -m to replace it");
+    }
+    if result.kept.todos {
+        println!("kept the todos of the old pull request - give --todo to replace them");
     }
     if let Some(review) = result.cleared.filter(|review| !review.comments.is_empty()) {
         println!(
@@ -175,16 +187,16 @@ fn submit(args: &Args) -> Result<(), String> {
         );
     }
     if result.plan.commit {
-        println!("committed on {}", pr.into);
+        println!("committed on {}", result.into);
     } else if result.plan.others.is_empty() {
         println!(
             "not committed (--no-commit) - the pull request is in the working tree of {}",
-            pr.into
+            result.into
         );
     } else {
         crate::logger::warn(&format!(
             "not committed - the checkout of {} has other changes: {}. The pull request is in its working tree. Commit it yourself",
-            pr.into,
+            result.into,
             result.plan.others.join(", ")
         ));
     }
@@ -207,8 +219,6 @@ fn ls(args: &Args) -> Result<(), String> {
                     ("name", Value::str(&pr.name)),
                     ("path", Value::str(&pr.rel_dir())),
                     ("author", Value::str(&pr.author)),
-                    ("from", Value::str(&pr.from)),
-                    ("into", Value::str(&pr.into)),
                     ("comments", Value::Number(pr.review().comments.len() as f64)),
                     ("todos", Value::strings(&pr.todos)),
                 ])
@@ -230,11 +240,9 @@ fn ls(args: &Args) -> Result<(), String> {
             colors::yellow(&plural(comments, "comment"))
         };
         println!(
-            "{}  {}  {} -> {}  {}",
+            "{}  {}  {}",
             colors::pad(&colors::bold(&pr.name), name_width),
             colors::pad(&review, 11),
-            pr.from,
-            pr.into,
             pr.author
         );
     }
@@ -267,6 +275,27 @@ fn merge(args: &Args) -> Result<(), String> {
     }
     print_removed_labels(&merged.removed_labels);
     report(&merged.plan);
+    Ok(())
+}
+
+fn apply(args: &Args) -> Result<(), String> {
+    args.expect_positional(1, 1, usage("apply"))?;
+    let project = Project::find()?;
+    let pr = prs::resolve(&project, first(args))?;
+    let applied = prs::apply(&project, &pr)?;
+    let branch = project.branch_name()?;
+    if applied {
+        println!(
+            "applied {} to the working tree of {branch} - not committed",
+            pr.name
+        );
+    } else {
+        println!("the changes of {} are already on {branch}", pr.name);
+    }
+    println!(
+        "to update the pull request, commit your changes, then run: todoer pr submit --branch <the branch that the pull request goes into> -n {} --update -m \"<what you changed>\"",
+        pr.name
+    );
     Ok(())
 }
 

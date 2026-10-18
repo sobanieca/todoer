@@ -9,9 +9,9 @@ pull request commands commit only their own files. The other todo commands do no
 
 Todos:
   ls [--mine] [--label l] [--available] [--json]
-                            list the todos; outside a git repository, list the todos of each
-                            project in the current folder and its subfolders, with its path
-                            and its checked-out branch
+                            list the todos and their open pull requests; outside a git
+                            repository, list the todos of each project in the current folder
+                            and its subfolders, with its path and its checked-out branch
   add <name> [-l label]... [-d name]... [-D label]... [text]
                             add a todo; -D makes it wait for each todo of the label; the
                             text can come on stdin
@@ -40,7 +40,8 @@ Dependencies and labels:
   labels rule <label> [text]
                             write the rule of the label; the text can come on stdin
   labels rule <label> --rm  remove the rule of the label
-  progress [label] [--json] print the progress of a label, or one line for each label
+  progress [label] [--json] print the todos of a label that are in progress, in a pull request
+                            and not started; or one line for each label
 
   A label rule is a file .todoer/labels/<label>.md. It tells in plain words which todos must have
   the label. todoer does not read the words: the agent reads the rules and adds the labels.
@@ -48,16 +49,18 @@ Dependencies and labels:
   the label, todoer removes the label from dependsOnLabels.
 
 Pull requests:
-  pr submit --branch b [-n name] [-m text] [--todo name]... [--update] [--no-commit]
+  pr submit --branch b -n name [-m text] [--todo name]... [--update] [--no-commit]
                             squash the commits of the current branch after the merge base with b
                             into one commit, write it as a pull request, and commit it on b;
-                            -n gives the name, else the subject of the first commit gives it;
-                            --update replaces the patch
-                            of a reviewed pull request and removes its review
+                            -n gives the name;
+                            -n <pr> --update writes the pull request <pr> again and removes
+                            its review; without -m or --todo, it keeps the old ones
   pr ls [--json]            list the pull requests of the current checkout
   pr merge <pr> [--no-commit]
                             apply the patch on the current branch and remove the pull request
                             and its todos, in one commit; stops when the review has a comment
+  pr apply <pr>             apply the patch to the working tree of the current branch, and do
+                            not commit
   pr close <pr> [--no-commit]
                             remove the pull request without a merge
   pr summary <pr> [-a area,...] [-x area,...]
@@ -102,9 +105,10 @@ $ todoer pr
 exit code: 1
 --- stderr
 error: use:
-  todoer pr submit --branch <branch> [-n <name>] [-m <text>] [--todo <name>]... [--update] [--no-commit]
+  todoer pr submit --branch <branch> -n <name> [-m <text>] [--todo <name>]... [--update] [--no-commit]
   todoer pr ls [--json]
   todoer pr merge <pr> [--no-commit]
+  todoer pr apply <pr>
   todoer pr close <pr> [--no-commit]
   todoer pr summary <pr> [-a <area,...>] [-x <area,...>]
   todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
@@ -116,9 +120,10 @@ exit code: 1
 --- stderr
 error: unknown command "todoer pr nope"
 use:
-  todoer pr submit --branch <branch> [-n <name>] [-m <text>] [--todo <name>]... [--update] [--no-commit]
+  todoer pr submit --branch <branch> -n <name> [-m <text>] [--todo <name>]... [--update] [--no-commit]
   todoer pr ls [--json]
   todoer pr merge <pr> [--no-commit]
+  todoer pr apply <pr>
   todoer pr close <pr> [--no-commit]
   todoer pr summary <pr> [-a <area,...>] [-x <area,...>]
   todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]

@@ -38,12 +38,7 @@ pub fn summary(pr: &Pr, filter: &Filter) -> String {
         colors::green("open"),
         pr.author
     ));
-    let mut second = vec![format!(
-        "from {} into {} at {}",
-        pr.from,
-        pr.into,
-        short(&pr.base)
-    )];
+    let mut second = vec![format!("base {}", short(&pr.base))];
     if !pr.todos.is_empty() {
         second.push(format!("todos: {}", pr.todos.join(", ")));
     }

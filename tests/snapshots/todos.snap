@@ -69,7 +69,8 @@ $ todoer ls --label config --json
     "dependsOnLabels": [],
     "waitsFor": [
       "port-cli-parser"
-    ]
+    ],
+    "prs": []
   }
 ]
 
@@ -141,16 +142,16 @@ config     1 todo
 rust-port  3 todos
 
 $ todoer progress
-config     0/1 in progress (0%)  [-]
-rust-port  1/3 in progress (33%)  [#--]
+config     0 in progress, 0 in a pull request, 1 not started  [-]
+rust-port  1 in progress, 0 in a pull request, 2 not started  [=--]
 
 $ todoer progress rust-port
-rust-port  1/3 in progress (33%)  [#--]
+rust-port  1 in progress, 0 in a pull request, 2 not started  [=--]
 
 in progress (1)
   port-cli-parser  me@example.com
 
-blocked (2)
+not started (2)
   port-config      waits for port-cli-parser
   release-v1       waits for port-config
 
@@ -158,29 +159,31 @@ $ todoer progress rust-port --json
 {
   "label": "rust-port",
   "total": 3,
-  "percent": 33,
   "inProgress": [
     {
       "name": "port-cli-parser",
+      "state": "in-progress",
       "assignee": "me@example.com",
-      "pr": null,
+      "prs": [],
       "waitsFor": []
     }
   ],
-  "available": [],
-  "blocked": [
+  "inPullRequest": [],
+  "notStarted": [
     {
       "name": "port-config",
+      "state": "blocked",
       "assignee": null,
-      "pr": null,
+      "prs": [],
       "waitsFor": [
         "port-cli-parser"
       ]
     },
     {
       "name": "release-v1",
+      "state": "blocked",
       "assignee": null,
-      "pr": null,
+      "prs": [],
       "waitsFor": [
         "port-config"
       ]

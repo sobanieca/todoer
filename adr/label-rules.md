@@ -19,8 +19,11 @@ labels.**
   have a rule.
 - `todoer add` tells the agent to check the rules when a rule exists.
 - `todoer check` reports a file with a bad name, and an empty rule.
-- The skill tells the agent to apply the rules after `todoer add`, and when it changes a todo. The
-  agent does not remove a label that the person added.
+- The skill tells the agent to read the rules before `todoer add`, and to give `-l` for each rule
+  that matches. It also applies the rules when it changes a todo. The agent does not remove a
+  label that the person added.
+- The description of the skill names todos, issues, tasks and bugs, so an agent loads the skill
+  when the person asks for any of them.
 
 ## Consequences
 

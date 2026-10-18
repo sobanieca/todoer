@@ -16,7 +16,12 @@ exit code: 1
 --- stderr
 error: the pull request cannot go into its own branch fix-sum - use --branch <the branch that it goes into>
 
-$ todoer pr submit --branch main -m 'b is three now.' --todo fix-the-sum [cwd: fix-sum]
+$ todoer pr submit --branch main [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: a submit needs the name of the pull request - use -n <name> for a new pull request, or -n <pr> --update to replace an open one. main has no open pull requests
+
+$ todoer pr submit --branch main -n use-three-for-b -m 'b is three now.' --todo fix-the-sum [cwd: fix-sum]
 submitted use-three-for-b: 1 commit, 3 files, into main
 .todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
 todos: fix-the-sum
@@ -35,8 +40,6 @@ pr.patch
 --- .todoer/prs/use-three-for-b/pr.md
 ---
 author: me@example.com
-from: fix-sum
-into: main
 base: 36e0c0e48173335816461f4110cd47bd3236a939
 todos: [fix-the-sum]
 ---
@@ -47,7 +50,7 @@ $ todoer pr ls [cwd: fix-sum]
 no open pull requests
 
 $ todoer pr ls
-use-three-for-b  no comments  fix-sum -> main  me@example.com
+use-three-for-b  no comments  me@example.com
 
 $ todoer pr ls --json
 [
@@ -55,8 +58,6 @@ $ todoer pr ls --json
     "name": "use-three-for-b",
     "path": ".todoer/prs/use-three-for-b",
     "author": "me@example.com",
-    "from": "fix-sum",
-    "into": "main",
     "comments": 0,
     "todos": [
       "fix-the-sum"
@@ -64,9 +65,52 @@ $ todoer pr ls --json
   }
 ]
 
+$ todoer ls && todoer ls --json
+in-progress  fix-the-sum  me@example.com  pr: use-three-for-b
+[
+  {
+    "name": "fix-the-sum",
+    "state": "in-progress",
+    "assignee": "me@example.com",
+    "labels": [
+      "math"
+    ],
+    "dependsOn": [],
+    "dependsOnLabels": [],
+    "waitsFor": [],
+    "prs": [
+      "use-three-for-b"
+    ]
+  }
+]
+
+$ todoer progress && todoer progress math && todoer progress math --json
+math  0 in progress, 1 in a pull request, 0 not started  [#]
+math  0 in progress, 1 in a pull request, 0 not started  [#]
+
+in a pull request (1)
+  fix-the-sum  me@example.com  pr: use-three-for-b
+{
+  "label": "math",
+  "total": 1,
+  "inProgress": [],
+  "inPullRequest": [
+    {
+      "name": "fix-the-sum",
+      "state": "in-progress",
+      "assignee": "me@example.com",
+      "prs": [
+        "use-three-for-b"
+      ],
+      "waitsFor": []
+    }
+  ],
+  "notStarted": []
+}
+
 $ todoer pr summary use-three-for-b
 use-three-for-b   open  by me@example.com
-from fix-sum into main at 36e0c0e   todos: fix-the-sum
+base 36e0c0e   todos: fix-the-sum
 
   b is three now.
 
@@ -172,7 +216,7 @@ the review is not committed - when it is done, run: git add .todoer/prs/use-thre
 
 $ todoer pr summary use-three-for-b
 use-three-for-b   open  by me@example.com
-from fix-sum into main at 36e0c0e   todos: fix-the-sum
+base 36e0c0e   todos: fix-the-sum
 
   b is three now.
 
@@ -279,18 +323,19 @@ Not in the pull request.
 From stdin.
 
 $ todoer pr ls && todoer progress
-use-three-for-b  9 comments   fix-sum -> main  me@example.com
-no labels - add one with todoer label add <name> <label>
+use-three-for-b  9 comments   me@example.com
+math  0 in progress, 1 in a pull request, 0 not started  [#]
 
-$ todoer pr submit --branch main -m 'A constant.' [cwd: fix-sum]
+$ todoer pr submit --branch main -n use-three-for-b -m 'A constant.' [cwd: fix-sum]
 exit code: 1
 --- stderr
-error: use-three-for-b is already submitted, and its review has 9 comments - do what the comments ask, then run todoer pr submit --update to replace the patch and remove the review
+error: main already has the pull request use-three-for-b - use -n use-three-for-b --update to replace it, or another -n to make a new pull request
 
-$ todoer pr submit --branch main -m 'A constant.' --update [cwd: fix-sum]
+$ todoer pr submit --branch main -n use-three-for-b --update -m 'A constant.' [cwd: fix-sum]
 updated use-three-for-b: 2 commits squashed to 1, 3 files, into main
 .todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
 todos: fix-the-sum
+kept the todos of the old pull request - give --todo to replace them
 removed the review (9 comments) - git history keeps it
 committed on main
 
@@ -303,25 +348,15 @@ pr.patch
 --- .todoer/prs/use-three-for-b/pr.md
 ---
 author: me@example.com
-from: fix-sum
-into: main
 base: 36e0c0e48173335816461f4110cd47bd3236a939
 todos: [fix-the-sum]
 ---
-
-b is three now.
-
-## Update
 
 A constant.
 
 $ todoer pr summary use-three-for-b
 use-three-for-b   open  by me@example.com
-from fix-sum into main at 36e0c0e   todos: fix-the-sum
-
-  b is three now.
-
-  ## Update
+base 36e0c0e   todos: fix-the-sum
 
   A constant.
 
@@ -341,12 +376,19 @@ the review is not committed - when it is done, run: git add .todoer/prs/use-thre
 $ todoer pr merge use-three-for-b
 exit code: 1
 --- stderr
-error: use-three-for-b has the unresolved comments c1, c2 - the author must do what they ask, then run todoer pr submit --update
+error: use-three-for-b has the unresolved comments c1, c2 - the author must do what they ask, then run todoer pr submit --branch main -n use-three-for-b --update
 
 $ todoer pr submit --branch main --update [cwd: fix-sum]
+exit code: 1
+--- stderr
+error: a submit needs the name of the pull request - use -n <name> for a new pull request, or -n <pr> --update to replace an open one. The open pull requests on main: use-three-for-b
+
+$ todoer pr submit --branch main -n use-three-for-b --update [cwd: fix-sum]
 updated use-three-for-b: 3 commits squashed to 1, 3 files, into main
 .todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
 todos: fix-the-sum
+kept the description of the old pull request - give -m to replace it
+kept the todos of the old pull request - give --todo to replace them
 removed the review (2 comments) - git history keeps it
 committed on main
 
@@ -360,7 +402,7 @@ merged use-three-for-b into main
 done: fix-the-sum
 
 $ git log --format=%s -3 && git status --short && ls .todoer && cat src/app.rs
-Use three for b
+todoer: merge use-three-for-b
 todoer: update use-three-for-b
 Review again
 prs
@@ -375,21 +417,17 @@ const B: i32 = 3;
 
 $ git show --stat --format='%an <%ae>%n%B' HEAD
 Me <me@example.com>
-Use three for b
-
-* Use three for b
-* Add a constant
-* Explain the guide
+todoer: merge use-three-for-b
 
 
- .todoer/prs/use-three-for-b/pr.diff  | 35 ------------------------
- .todoer/prs/use-three-for-b/pr.md    |  9 ------
- .todoer/prs/use-three-for-b/pr.patch | 53 ------------------------------------
- .todoer/todos/fix-the-sum.md         |  3 --
+ .todoer/prs/use-three-for-b/pr.diff  | 35 -------------------------
+ .todoer/prs/use-three-for-b/pr.md    |  7 -----
+ .todoer/prs/use-three-for-b/pr.patch | 50 ------------------------------------
+ .todoer/todos/fix-the-sum.md         |  4 ---
  docs/guide.md                        |  4 +++
  src/app.rs                           |  4 ++-
  src/{old.rs => lib.rs}               |  0
- 7 files changed, 7 insertions(+), 101 deletions(-)
+ 7 files changed, 7 insertions(+), 97 deletions(-)
 
 $ todoer pr ls && todoer ls
 no open pull requests

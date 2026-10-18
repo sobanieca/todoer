@@ -25,7 +25,8 @@ $ cd .. && todoer ls --label auth --json
     ],
     "dependsOn": [],
     "dependsOnLabels": [],
-    "waitsFor": []
+    "waitsFor": [],
+    "prs": []
   }
 ]
 

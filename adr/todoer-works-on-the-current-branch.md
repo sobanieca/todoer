@@ -22,7 +22,8 @@ commands commit only their own files. The other todo commands do not commit.**
   files and prints a warning with the other changes. The person commits. Files that git does not
   track do not count.
 - The other git commands read: the diff and the patch of a submit, and the old file for a review.
-  `pr merge` also applies the patch. todoer never pushes or fetches.
+  `pr merge` and `pr apply` also apply the patch. `pr apply` does not commit. todoer never pushes
+  or fetches.
 - A lock file `todoer.lock` in the git common folder lets one todoer command write at a time.
 - `claim` refuses a todo of another person. `--force` only skips the dependency check.
 - Outside a git repository, only `todoer ls` reads many projects. It finds each git project with

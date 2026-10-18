@@ -1,0 +1,63 @@
+$ todoer pr submit --branch main -n use-three-for-b --todo fix-the-sum [cwd: fix-sum]
+submitted use-three-for-b: 1 commit, 3 files, into main
+.todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
+todos: fix-the-sum
+committed on main
+
+$ todoer pr apply nope
+exit code: 1
+--- stderr
+error: there is no open pull request nope - run todoer pr ls
+
+$ todoer pr apply use-three-for-b
+exit code: 1
+--- stderr
+error: tweak has changes that are not committed: docs/guide.md - commit them first
+
+$ todoer pr apply use-three-for-b
+applied use-three-for-b to the working tree of tweak - not committed
+to update the pull request, commit your changes, then run: todoer pr submit --branch <the branch that the pull request goes into> -n use-three-for-b --update -m "<what you changed>"
+
+$ git status --short && cat src/app.rs
+M  docs/guide.md
+M  src/app.rs
+R  src/old.rs -> src/lib.rs
+fn main() {
+    let a = 1;
+    let b = 3;
+    println!("{}", a + b);
+}
+
+$ todoer pr apply use-three-for-b
+exit code: 1
+--- stderr
+error: tweak has changes that are not committed: docs/guide.md, src/app.rs, src/lib.rs - commit them first
+
+$ todoer pr submit --branch main --update -m 'Four.'
+exit code: 1
+--- stderr
+error: a submit needs the name of the pull request - use -n <name> for a new pull request, or -n <pr> --update to replace an open one. The open pull requests on main: use-three-for-b
+
+$ todoer pr submit --branch main -n use-three-for-b --update -m 'Four.'
+updated use-three-for-b: 2 commits squashed to 1, 3 files, into main
+.todoer/prs/use-three-for-b on main
+todos: fix-the-sum
+kept the todos of the old pull request - give --todo to replace them
+committed on main
+
+$ git log --format=%s -2 main && git show main:.todoer/prs/use-three-for-b/pr.md
+todoer: update use-three-for-b
+todoer: submit use-three-for-b
+---
+author: me@example.com
+base: 516c511a2ebe420d3aabb6dc51404f06f2ff90e9
+todos: [fix-the-sum]
+---
+
+Four.
+
+$ git show main:.todoer/prs/use-three-for-b/pr.patch | grep -E '^(Subject|[-+] )'
+Subject: [PATCH] todoer: merge use-three-for-b
+-    let b = 2;
++    let b = 4;
+

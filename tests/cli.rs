@@ -254,8 +254,9 @@ fn pull_requests() {
     s.run_in("todoer pr submit", &work);
     s.run_in("todoer pr submit --branch nope", &work);
     s.run_in("todoer pr submit --branch fix-sum", &work);
+    s.run_in("todoer pr submit --branch main", &work);
     s.run_in(
-        "todoer pr submit --branch main -m 'b is three now.' --todo fix-the-sum",
+        "todoer pr submit --branch main -n use-three-for-b -m 'b is three now.' --todo fix-the-sum",
         &work,
     );
     s.run("git log --format=%s -3 && git status --short && ls -a .todoer/prs/use-three-for-b");
@@ -263,6 +264,9 @@ fn pull_requests() {
     s.run_in("todoer pr ls", &work);
     s.run("todoer pr ls");
     s.run("todoer pr ls --json");
+    s.quiet("todoer label add fix-the-sum math && git commit -qam 'Label fix-the-sum'");
+    s.run("todoer ls && todoer ls --json");
+    s.run("todoer progress && todoer progress math && todoer progress math --json");
     s.run("todoer pr summary use-three-for-b");
     s.run("todoer pr details .todoer/prs/use-three-for-b/");
     s.run("todoer pr details use-three-for-b docs/guide.md --context 2");
@@ -296,9 +300,12 @@ fn pull_requests() {
     s.run("todoer pr ls && todoer progress");
     s.write("../fix-sum/src/app.rs", "fn main() {\n    let a = 1;\n    let b = B;\n    println!(\"{}\", a + b);\n}\n\nconst B: i32 = 3;\n");
     s.quiet("cd ../fix-sum && git commit -q -am 'Add a constant'");
-    s.run_in("todoer pr submit --branch main -m 'A constant.'", &work);
     s.run_in(
-        "todoer pr submit --branch main -m 'A constant.' --update",
+        "todoer pr submit --branch main -n use-three-for-b -m 'A constant.'",
+        &work,
+    );
+    s.run_in(
+        "todoer pr submit --branch main -n use-three-for-b --update -m 'A constant.'",
         &work,
     );
     s.run("git log --format=%s -1 && git status --short && ls .todoer/prs/use-three-for-b");
@@ -311,6 +318,10 @@ fn pull_requests() {
     s.write("../fix-sum/docs/guide.md", "# Guide\n\nWhat the guide is for.\n\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\n");
     s.quiet("cd ../fix-sum && git commit -q -am 'Explain the guide'");
     s.run_in("todoer pr submit --branch main --update", &work);
+    s.run_in(
+        "todoer pr submit --branch main -n use-three-for-b --update",
+        &work,
+    );
     s.run("todoer pr comment");
     s.run("todoer pr merge use-three-for-b");
     s.run("git log --format=%s -3 && git status --short && ls .todoer && cat src/app.rs");
@@ -339,11 +350,11 @@ fn merging_and_closing() {
         "todoer pr submit --branch main -n second-try --todo fix-the-sum",
         &work,
     );
-    s.run_in("todoer pr submit --branch main -n third-try", &work);
     s.quiet("cd ../fix-sum && git switch -q -c fix-sum-2");
     s.run_in("todoer pr submit --branch main -n second-try", &work);
+    s.run_in("todoer pr submit --branch main -n nope --update", &work);
     s.run_in(
-        "todoer pr submit --branch main -n second-try --update -m 'From a new branch.'",
+        "todoer pr submit --branch main -n second-try --update -m 'From a new branch.' --todo fix-the-sum",
         &work,
     );
     s.run("todoer pr ls && git log --format=%s -1 && git status --short");
@@ -374,8 +385,15 @@ fn submitting_into_other_branches() {
     let mut s = Session::new("into");
     let work = setup_pr(&s);
     s.quiet("git switch -q -c feature");
-    s.run_in("todoer pr submit --branch main --no-commit", &work);
-    s.run_in("todoer pr submit --branch main --todo fix-the-sum", &work);
+    s.run_in(
+        "todoer pr submit --branch main -n use-three-for-b --no-commit",
+        &work,
+    );
+    s.run_in(
+        "todoer pr submit --branch main -n use-three-for-b --todo fix-the-sum",
+        &work,
+    );
+    s.run_in("todoer pr submit --branch main -n use-three-for-b", &work);
     s.run("git log --format=%s -2 main && git status --short && todoer pr ls");
     s.run("git switch -q main && todoer pr ls && todoer pr merge use-three-for-b");
     s.run("git log --format=%s -3 && git status --short && todoer ls");
@@ -392,6 +410,35 @@ fn submitting_into_other_branches() {
 }
 
 #[test]
+fn applying_a_pull_request() {
+    let mut s = Session::new("apply");
+    let work = setup_pr(&s);
+    s.run_in(
+        "todoer pr submit --branch main -n use-three-for-b --todo fix-the-sum",
+        &work,
+    );
+    s.quiet("git switch -q -c tweak");
+    s.run("todoer pr apply nope");
+    s.quiet("echo more >> docs/guide.md");
+    s.run("todoer pr apply use-three-for-b");
+    s.quiet("git checkout -q -- docs/guide.md");
+    s.run("todoer pr apply use-three-for-b");
+    s.run("git status --short && cat src/app.rs");
+    s.run("todoer pr apply use-three-for-b");
+    s.quiet("git commit -q -m 'Use three for b'");
+    s.write(
+        "src/app.rs",
+        "fn main() {\n    let a = 1;\n    let b = 4;\n    println!(\"{}\", a + b);\n}\n",
+    );
+    s.quiet("git commit -q -am 'Use four for b'");
+    s.run("todoer pr submit --branch main --update -m 'Four.'");
+    s.run("todoer pr submit --branch main -n use-three-for-b --update -m 'Four.'");
+    s.run("git log --format=%s -2 main && git show main:.todoer/prs/use-three-for-b/pr.md");
+    s.run("git show main:.todoer/prs/use-three-for-b/pr.patch | grep -E '^(Subject|[-+] )'");
+    s.assert_snapshot("applying_a_pull_request");
+}
+
+#[test]
 fn code_areas() {
     let mut s = Session::new("areas");
     s.write(
@@ -400,7 +447,7 @@ fn code_areas() {
     );
     commit(&s, "areas");
     let work = setup_pr(&s);
-    s.run_in("todoer pr submit --branch main", &work);
+    s.run_in("todoer pr submit --branch main -n use-three-for-b", &work);
     let runs = [
         "todoer pr summary use-three-for-b",
         "todoer pr summary use-three-for-b -a legacy,app",
