@@ -369,7 +369,13 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
     .stdout
     .trim()
     .to_string();
-    let mut format_patch = vec!["format-patch", "--stdout", "-1", &squashed];
+    let mut format_patch = vec![
+        "format-patch",
+        "--stdout",
+        "--no-signature",
+        "-1",
+        &squashed,
+    ];
     format_patch.extend(EXCLUDE_DATA);
     let patch = git::check(root, &format_patch)?.stdout;
     let mut diff_args = vec!["diff", "-M", &base, "HEAD"];

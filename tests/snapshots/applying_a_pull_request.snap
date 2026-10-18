@@ -50,7 +50,7 @@ todoer: update use-three-for-b
 todoer: submit use-three-for-b
 ---
 author: me@example.com
-base: 516c511a2ebe420d3aabb6dc51404f06f2ff90e9
+base: dce2065d289cc7d20e8c82b8a0aa09561c21c925
 todos: [fix-the-sum]
 ---
 

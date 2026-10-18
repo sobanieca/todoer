@@ -420,14 +420,14 @@ Me <me@example.com>
 todoer: merge use-three-for-b
 
 
- .todoer/prs/use-three-for-b/pr.diff  | 35 -------------------------
- .todoer/prs/use-three-for-b/pr.md    |  7 -----
- .todoer/prs/use-three-for-b/pr.patch | 50 ------------------------------------
+ .todoer/prs/use-three-for-b/pr.diff  | 35 ---------------------------
+ .todoer/prs/use-three-for-b/pr.md    |  7 ------
+ .todoer/prs/use-three-for-b/pr.patch | 47 ------------------------------------
  .todoer/todos/fix-the-sum.md         |  4 ---
  docs/guide.md                        |  4 +++
  src/app.rs                           |  4 ++-
  src/{old.rs => lib.rs}               |  0
- 7 files changed, 7 insertions(+), 97 deletions(-)
+ 7 files changed, 7 insertions(+), 94 deletions(-)
 
 $ todoer pr ls && todoer ls
 no open pull requests
