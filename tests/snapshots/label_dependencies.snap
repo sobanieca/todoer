@@ -23,7 +23,7 @@ Build the page.
 $ todoer add login-help -D ui -D Bad
 exit code: 1
 --- stderr
-error: "Bad" is not a label - use lowercase letters, digits and hyphens
+error: "Bad" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 
 $ todoer add login-help -d new-login-page -l auth-backend-refactor
 exit code: 1
@@ -163,7 +163,7 @@ blocked      release         waits for label auth
 $ todoer check
 exit code: 1
 hand-edit: dependsOnLabels names gone, which no other todo has
-hand-edit: bad label "Bad" in dependsOnLabels - use lowercase letters, digits and hyphens
+hand-edit: bad label "Bad" in dependsOnLabels - use lowercase letters, digits and hyphens, with a letter or digit at each end
 --- stderr
 error: 2 problems in 4 todos and 0 label rules
 

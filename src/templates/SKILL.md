@@ -58,8 +58,8 @@ The person can ask for one todo, a list of todos or a label.
 
        todoer pr submit --branch <branch of the person> -n <pr name> -m "<what you changed and why>" --todo <name>
 
-   - The pull request name has lowercase letters, digits and hyphens, for example
-     `fix-login-crash`.
+   - The pull request name has lowercase letters, digits and hyphens, and starts and ends with a
+     letter or digit, for example `fix-login-crash`.
    - Give `--todo` once for each todo that the pull request does.
    - The patch has all the commits of your branch after the merge base with `--branch`, squashed
      into one commit.
@@ -150,9 +150,10 @@ Apply the label rules (see below).
     todoer labels rule <label> "<which todos must have the label>"
     todoer progress <label>
 
-A name has lowercase letters, digits and hyphens, for example `fix-login-crash`. Add a dependency
-only when a todo cannot start before the other todo is done. When a todo waits for all the todos
-of a label, depend on the label: then a new todo with the label also blocks the todo.
+A name has lowercase letters, digits and hyphens, and starts and ends with a letter or digit, for
+example `fix-login-crash`. Add a dependency only when a todo cannot start before the other todo is
+done. When a todo waits for all the todos of a label, depend on the label: then a new todo with the
+label also blocks the todo.
 
 A label rule tells in plain words which todos must have a label. todoer does not read the rules.
 You apply them:

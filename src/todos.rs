@@ -73,7 +73,9 @@ pub fn todo_path(name: &str) -> String {
 }
 
 pub fn valid_name(text: &str) -> bool {
-    !text.is_empty()
+    let end = |c: Option<char>| c.is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+    end(text.chars().next())
+        && end(text.chars().last())
         && text
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
@@ -88,7 +90,7 @@ pub fn check_label(label: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "\"{label}\" is not a label - use lowercase letters, digits and hyphens"
+            "\"{label}\" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end"
         ))
     }
 }
@@ -99,7 +101,7 @@ pub fn check_name(name: &str) -> Result<(), String> {
     }
     match slug(name, 60) {
         good if good.is_empty() => Err(format!(
-            "\"{name}\" is not a todo name - use lowercase letters, digits and hyphens"
+            "\"{name}\" is not a todo name - use lowercase letters, digits and hyphens, with a letter or digit at each end"
         )),
         good => Err(format!("\"{name}\" is not a todo name - use {good}")),
     }
@@ -364,7 +366,7 @@ impl Todos {
             for label in &todo.labels {
                 if !valid_label(label) {
                     problems.push(format!(
-                        "{}: bad label \"{label}\" - use lowercase letters, digits and hyphens",
+                        "{}: bad label \"{label}\" - use lowercase letters, digits and hyphens, with a letter or digit at each end",
                         todo.name
                     ));
                 }
@@ -390,7 +392,7 @@ impl Todos {
             for label in &todo.depends_on_labels {
                 if !valid_label(label) {
                     problems.push(format!(
-                        "{}: bad label \"{label}\" in dependsOnLabels - use lowercase letters, digits and hyphens",
+                        "{}: bad label \"{label}\" in dependsOnLabels - use lowercase letters, digits and hyphens, with a letter or digit at each end",
                         todo.name
                     ));
                 } else if self.labeled_except(label, &todo.name).is_empty() {
@@ -645,6 +647,13 @@ mod tests {
             "\"Fix_Login\" is not a todo name - use fix-login"
         );
         assert!(check_name("!!!").unwrap_err().contains("lowercase"));
+        assert!(check_name("a--b").is_ok());
+        assert!(check_name("a").is_ok());
+        assert_eq!(
+            check_name("-fix-login-").unwrap_err(),
+            "\"-fix-login-\" is not a todo name - use fix-login"
+        );
+        assert!(check_name("---").unwrap_err().contains("lowercase"));
         assert_eq!(name_of(".todoer/todos/fix-login.md"), "fix-login");
         assert_eq!(name_of("fix-login"), "fix-login");
     }

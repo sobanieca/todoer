@@ -10,6 +10,7 @@ use crate::rules::{Rules, remove_rule, rename_rule, rule_file, rule_path, write_
 use crate::terminal;
 use crate::todos::{
     Todo, Todos, check_label, name_of, read_todo, remove_label_dependencies_without_todos,
+    valid_label,
 };
 use std::collections::BTreeMap;
 
@@ -225,7 +226,8 @@ fn move_label(args: &Args) -> Result<(), String> {
     let project = Project::find()?;
     let _lock = project.lock()?;
     let names = todos_with_label(&project, old)?;
-    let has_rule = rule_file(&project.root, old).is_file();
+    // A bad label in a todo can be renamed, but only a valid label has a rule file.
+    let has_rule = valid_label(old) && rule_file(&project.root, old).is_file();
     if names.is_empty() && !has_rule {
         return Err(no_label(old));
     }

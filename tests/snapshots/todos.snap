@@ -25,7 +25,7 @@ error: "Fix_Login" is not a todo name - use fix-login
 $ todoer add x -l Bad
 exit code: 1
 --- stderr
-error: "Bad" is not a label - use lowercase letters, digits and hyphens
+error: "Bad" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 
 $ todoer add x -d missing
 exit code: 1
@@ -135,7 +135,7 @@ release-v1: removed the label release
 $ todoer label add release-v1 Release
 exit code: 1
 --- stderr
-error: "Release" is not a label - use lowercase letters, digits and hyphens
+error: "Release" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 
 $ todoer labels
 config     1 todo
@@ -228,7 +228,7 @@ Parse the arguments.
 $ todoer labels mv core Core
 exit code: 1
 --- stderr
-error: "Core" is not a label - use lowercase letters, digits and hyphens
+error: "Core" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 
 $ todoer labels mv core core
 exit code: 1
@@ -289,7 +289,7 @@ $ todoer check
 $ todoer check
 exit code: 1
 Bad: "Bad" is not a todo name - use bad
-Bad: bad label "Rust" - use lowercase letters, digits and hyphens
+Bad: bad label "Rust" - use lowercase letters, digits and hyphens, with a letter or digit at each end
 Bad: bad assignee "bob" - use a git email
 Bad: dependsOn names gone, which is not a todo
 Bad: dependsOn names the todo itself
@@ -302,7 +302,7 @@ available    config-file
 blocked      release-v1   waits for config-file
 --- stderr
 warning: Bad: "Bad" is not a todo name - use bad
-warning: Bad: bad label "Rust" - use lowercase letters, digits and hyphens
+warning: Bad: bad label "Rust" - use lowercase letters, digits and hyphens, with a letter or digit at each end
 warning: Bad: bad assignee "bob" - use a git email
 warning: Bad: dependsOn names gone, which is not a todo
 warning: Bad: dependsOn names the todo itself

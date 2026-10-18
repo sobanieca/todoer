@@ -54,7 +54,7 @@ impl Rules {
             };
             if !valid_label(label) {
                 problems.push(format!(
-                    "{shown}: \"{label}\" is not a label - use lowercase letters, digits and hyphens"
+                    "{shown}: \"{label}\" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end"
                 ));
                 continue;
             }
@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(
             rules.problems(),
             [
-                ".todoer/labels/Bad.md: \"Bad\" is not a label - use lowercase letters, digits and hyphens",
+                ".todoer/labels/Bad.md: \"Bad\" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end",
                 ".todoer/labels/empty.md: the rule is empty - write the rule, or run todoer labels rule empty --rm",
                 ".todoer/labels/folder: not a rule - name the file <label>.md",
                 ".todoer/labels/notes.txt: not a rule - name the file <label>.md",

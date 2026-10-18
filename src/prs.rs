@@ -215,7 +215,7 @@ fn check_name(name: &str) -> Result<(), String> {
     }
     match slug(name, 60) {
         good if good.is_empty() => Err(format!(
-            "\"{name}\" is not a pull request name - use lowercase letters, digits and hyphens"
+            "\"{name}\" is not a pull request name - use lowercase letters, digits and hyphens, with a letter or digit at each end"
         )),
         good => Err(format!(
             "\"{name}\" is not a pull request name - use {good}"

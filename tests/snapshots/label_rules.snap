@@ -19,7 +19,7 @@ error: use: todoer labels rule <label> [text] | todoer labels rule <label> --rm
 $ todoer labels rule Auth 'A rule.'
 exit code: 1
 --- stderr
-error: "Auth" is not a label - use lowercase letters, digits and hyphens
+error: "Auth" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 
 $ todoer labels rule ui < /dev/null
 exit code: 1
@@ -102,7 +102,7 @@ $ todoer check
 
 $ todoer check
 exit code: 1
-.todoer/labels/Bad.md: "Bad" is not a label - use lowercase letters, digits and hyphens
+.todoer/labels/Bad.md: "Bad" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 .todoer/labels/empty.md: the rule is empty - write the rule, or run todoer labels rule empty --rm
 .todoer/labels/notes.txt: not a rule - name the file <label>.md
 --- stderr
@@ -111,7 +111,7 @@ error: 3 problems in 2 todos and 1 label rule
 $ todoer labels
 empty  0 todos
 --- stderr
-warning: .todoer/labels/Bad.md: "Bad" is not a label - use lowercase letters, digits and hyphens
+warning: .todoer/labels/Bad.md: "Bad" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
 warning: .todoer/labels/empty.md: the rule is empty - write the rule, or run todoer labels rule empty --rm
 warning: .todoer/labels/notes.txt: not a rule - name the file <label>.md
 
