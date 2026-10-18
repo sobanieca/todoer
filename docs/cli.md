@@ -318,4 +318,8 @@ docs: /docs/ *.md
 | `todoer help`             | prints the help                                    |
 | `todoer version`          | prints the version                                 |
 
-`skill --init` writes `.claude/skills/todoer/SKILL.md` and `.agents/skills/todoer/SKILL.md`.
+`skill --init` writes `.claude/skills/todoer/SKILL.md` and `.agents/skills/todoer/SKILL.md`. In a
+git repository, it writes them in the root of the repository, also from a subfolder. Outside a git
+repository, it writes them in the home folder (`~/.claude/skills/todoer/` and
+`~/.agents/skills/todoer/`), so that the agents read the skill in all projects. When a file exists,
+it stops and writes nothing.

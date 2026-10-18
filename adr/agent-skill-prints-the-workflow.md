@@ -11,6 +11,9 @@ skill is installed.
 
 - The text is `src/templates/SKILL.md`.
 - `--init` writes `.claude/skills/todoer/SKILL.md` and `.agents/skills/todoer/SKILL.md`.
+- In a git repository, `--init` writes them in the root of the repository. Outside a git
+  repository, it writes them in the home folder, so that the agents read the skill in all projects.
+- The help tells an AI agent to run `todoer skill`.
 
 ## Consequences
 

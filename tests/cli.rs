@@ -468,10 +468,15 @@ fn code_areas() {
 fn skill() {
     let mut s = Session::new("skill");
     s.run("todoer skill | head -5");
-    s.run("todoer skill --init");
+    s.run("mkdir -p src/app && cd src/app && todoer skill --init");
     s.run("todoer skill --init");
     s.run(
         "ls .claude/skills/todoer .agents/skills/todoer && head -3 .claude/skills/todoer/SKILL.md",
     );
+    let notes = s.path("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    s.run_in("todoer skill --init", &notes);
+    s.run_in("todoer skill --init", &notes);
+    s.run("ls ~/.claude/skills/todoer ~/.agents/skills/todoer");
     s.assert_snapshot("skill");
 }

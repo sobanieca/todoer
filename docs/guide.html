@@ -571,7 +571,7 @@
             <p>todoer uses your git email to know who you are. Make sure that git has it:</p>
 <pre class="shell"><span class="p">$ </span>git config user.email
 <span class="c">you@example.com</span></pre>
-            <p>In each project, write the agent skill once and commit it. Claude Code, Codex and Cursor read it, so your agent knows the workflow below.</p>
+            <p>In each project, write the agent skill once and commit it. Claude Code, Codex and Cursor read it, so your agent knows the workflow below. Run it outside a git repository to write the skill in your home folder, for all projects.</p>
 <pre class="shell"><span class="p">$ </span>cd ~/code/my-project
 <span class="p">$ </span>todoer skill --init
 <span class="c">wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
@@ -808,7 +808,7 @@ work/api  feat/rate-limit
                   <tr><td><code>todoer pr merge &lt;pr&gt; [--no-commit]</code></td><td>applies the patch as one commit</td></tr>
                   <tr><td><code>todoer pr apply &lt;pr&gt;</code></td><td>applies the patch to the working tree, no commit</td></tr>
                   <tr><td><code>todoer pr close &lt;pr&gt; [--no-commit]</code></td><td>removes the pull request</td></tr>
-                  <tr><td><code>todoer skill [--init]</code></td><td>prints or writes the agent skill</td></tr>
+                  <tr><td><code>todoer skill [--init]</code></td><td>prints or writes the agent skill, in the repository or in the home folder</td></tr>
                   <tr><td><code>todoer update</code></td><td>installs the latest release</td></tr>
                 </tbody>
               </table>

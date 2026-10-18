@@ -76,6 +76,10 @@ todoer add fix-login-crash -l auth "Steps to reproduce: ..."
 git add .todoer && git commit -m "Plan the auth work"
 ```
 
+`todoer skill --init` writes the skill in the root of the git repository. Outside a git repository,
+it writes the skill in your home folder, for all projects. An agent with no skill can run
+`todoer skill` to learn the workflow.
+
 1. **Claim.** Ask an agent to claim `fix-login-crash`, a list of todos or a label. It runs
    `todoer claim`, which sets you as the assignee and commits the todo on your branch. Push it when
    you want.

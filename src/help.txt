@@ -6,6 +6,8 @@ goes into. The name is its id and its title.
 todoer reads and writes the files of the current checkout, on any branch. claim, unclaim and the
 pull request commands commit only their own files. The other todo commands do not commit.
 
+If you are an AI agent, run 'todoer skill' to learn the todoer workflow.
+
 Todos:
   ls [--mine] [--label l] [--available] [--json]
                             list the todos and their open pull requests; outside a git
@@ -85,7 +87,9 @@ Pull requests:
   and give it to an agent.
 
 Other:
-  skill [--init]            print the agent workflow, or write it as a skill
+  skill [--init]            print the agent workflow, or write it as a skill; in a git repository,
+                            --init writes it in the root of the repository; outside a git
+                            repository, it writes it in the home folder, for all projects
   update                    install the latest release
   help, --help              print this help
   version, --version        print the version

@@ -5,7 +5,7 @@ todoer keeps the todos and the pull requests of a git project as plain files.
 
 - A todo is a file `.todoer/todos/<name>.md`. The name is its id and its title. The front matter
 
-$ todoer skill --init
+$ mkdir -p src/app && cd src/app && todoer skill --init
 wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
 wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)
 
@@ -23,4 +23,21 @@ SKILL.md
 ---
 name: todoer
 description: Add todoer todos with the labels of the label rules, claim todoer todos, implement them in a git worktree and submit the work as a todoer pull request, review a todoer pull request with the person, or address its review. Use when asked to add a todo, an issue, a task or a bug in a project with a .todoer/ folder, to work on todoer todos (files in .todoer/todos/, like .todoer/todos/fix-login.md) or on todoer pull requests in .todoer/prs/.
+
+$ todoer skill --init [cwd: notes]
+not in a git repository - writing the skill to <tmp>/home for all projects
+wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
+wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)
+
+$ todoer skill --init [cwd: notes]
+exit code: 1
+--- stderr
+error: <tmp>/home/.agents/skills/todoer/SKILL.md exists - remove it to write the skill again
+
+$ ls ~/.claude/skills/todoer ~/.agents/skills/todoer
+<tmp>/home/.agents/skills/todoer:
+SKILL.md
+
+<tmp>/home/.claude/skills/todoer:
+SKILL.md
 
