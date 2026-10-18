@@ -1,11 +1,23 @@
 Website: https://sobanieca.github.io/todoer/
 
-# todoer
+# About
 
-todoer keeps the todos and the pull requests of a git project as plain files. AI agents and people
-claim todos, work in git worktrees, and review the pull requests on the command line.
+- :robot: Do AI agents do your work, and do you want to know which agent works on which todo?
+- :memo: Do you want your todos in git, next to the code that they change?
+- :no_entry_sign: Do you want a tracker without an account, a server or a browser tab?
+- :mag: Do you want to review the changes of an agent in the terminal, line by line?
+- :package: Do you want a pull request that is one commit, which anyone can apply and change?
+- :bar_chart: Do you want to see the progress of a feature that has many todos?
+- :file_folder: Do you keep many projects in one folder and want all their todos in one list?
 
-- One binary. No database, no server, no account, no settings.
+`todoer` keeps the todos and the pull requests of a git project as plain files. AI agents and people
+claim todos, work in git worktrees, and review the pull requests on the command line. It is one
+binary. It has no database, no server, no account and no settings.
+
+todoer is not released yet. Until version `1.0.0`, any part of it can change.
+
+## How it works
+
 - A todo is a file `.todoer/todos/<name>.md`. The name is its id. The file exists while the work is
   open.
 - todoer works on any branch, also a feature branch. `claim` commits the todo on the current
@@ -25,8 +37,6 @@ claim todos, work in git worktrees, and review the pull requests on the command 
 - Code areas show how much of a pull request changes each part of the code.
 - In a folder of projects, such as `~/code`, `todoer ls` lists the todos of every project, with
   its path and its checked-out branch. The other commands work in one project.
-
-todoer is not released yet. Until version `1.0.0`, any part of it can change.
 
 ## Install
 
