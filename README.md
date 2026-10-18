@@ -44,7 +44,12 @@ todoer is one binary for Linux and macOS (x64 and arm64).
 
 ```sh
 curl -fsSL sobanieca.github.io/todoer/install.sh | bash
-todoer update              # installs the latest release later
+```
+
+To install the latest release later, run:
+
+```sh
+todoer update
 ```
 
 The script installs todoer to `/usr/local/bin`, for all users. If that folder is not writable, the
