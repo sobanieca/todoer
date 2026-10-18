@@ -19,7 +19,7 @@ todoer is not released yet. Until version `1.0.0`, any part of it can change.
 ## How it works
 
 - A todo is a file `.todoer/todos/<name>.md`. The name is its id. The file exists while the work is
-  open.
+  open. `todoer show <name>` prints all the data of a todo.
 - todoer works on any branch, also a feature branch. `claim` commits the todo on the current
   branch, so you can push it. The other todo commands do not commit.
 - A pull request is a patch in `.todoer/prs/`, committed on the branch that it goes into. You review

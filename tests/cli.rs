@@ -48,6 +48,10 @@ fn todos() {
     s.run("todoer ls --label config --json");
     s.run("cd .todoer/todos && todoer claim port-cli-parser.md");
     s.run("todoer ls");
+    s.run("todoer show port-config");
+    s.run("todoer show .todoer/todos/port-cli-parser.md --json");
+    s.run("todoer show missing");
+    s.run("todoer show");
     s.run("todoer dep show port-config");
     s.run("todoer dep add port-cli-parser release-v1");
     s.run("todoer dep add release-v1 release-v1");
@@ -293,6 +297,7 @@ fn pull_requests() {
     s.run("todoer pr summary use-three-for-b");
     s.run("todoer pr details use-three-for-b");
     s.run("git status --short");
+    s.run("todoer show fix-the-sum");
     s.note_file(&format!("{PR}/review.md"));
     s.quiet(&format!(
         "git add {PR}/review.md && git commit -q -m 'Review use-three-for-b' -- {PR}/review.md"

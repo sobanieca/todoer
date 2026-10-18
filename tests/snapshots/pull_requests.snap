@@ -271,6 +271,16 @@ src/old.rs -> src/lib.rs  (R)
 $ git status --short
 ?? .todoer/prs/use-three-for-b/review.md
 
+$ todoer show fix-the-sum
+fix-the-sum  (in-progress)
+  file:        .todoer/todos/fix-the-sum.md
+  assignee:    me@example.com
+  labels:      math
+  depends on:  none
+  waits for:   none
+  needed by:   none
+  pr:          use-three-for-b (9 comments)
+
 --- .todoer/prs/use-three-for-b/review.md
 ### c1 `src/app.rs:3` me@example.com
 

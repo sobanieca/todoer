@@ -13,6 +13,8 @@ Todos:
                             list the todos and their open pull requests; outside a git
                             repository, list the todos of each project in the current folder
                             and its subfolders, with its path and its checked-out branch
+  show <name> [--json]      print the state, the assignee, the labels, the dependencies, the
+                            todos that need it, the pull requests and the text of a todo
   add <name> [-l label]... [-d name]... [-D label]... [text]
                             add a todo; -D makes it wait for each todo of the label; the
                             text can come on stdin

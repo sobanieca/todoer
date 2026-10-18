@@ -82,6 +82,45 @@ in-progress  port-cli-parser  me@example.com
 blocked      port-config      waits for port-cli-parser
 blocked      release-v1       waits for port-config
 
+$ todoer show port-config
+port-config  (blocked)
+  file:        .todoer/todos/port-config.md
+  assignee:    none
+  labels:      rust-port, config
+  depends on:  port-cli-parser
+  waits for:   port-cli-parser
+  needed by:   release-v1
+  pr:          none
+
+$ todoer show .todoer/todos/port-cli-parser.md --json
+{
+  "name": "port-cli-parser",
+  "state": "in-progress",
+  "assignee": "me@example.com",
+  "labels": [
+    "rust-port"
+  ],
+  "dependsOn": [],
+  "dependsOnLabels": [],
+  "waitsFor": [],
+  "prs": [],
+  "neededBy": [
+    "port-config"
+  ],
+  "file": ".todoer/todos/port-cli-parser.md",
+  "text": "Parse the arguments."
+}
+
+$ todoer show missing
+exit code: 1
+--- stderr
+error: there is no todo missing - run todoer ls
+
+$ todoer show
+exit code: 1
+--- stderr
+error: use: todoer show <name> [--json]
+
 $ todoer dep show port-config
 port-config  (blocked)
 

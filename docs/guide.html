@@ -599,7 +599,16 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span></pre>
               <p>Add a todo with a name, labels and the text. The text can also come on stdin.</p>
 <pre class="shell"><span class="p">$ </span>todoer add fix-the-login-crash -l auth "Steps to reproduce: sign in with an expired token."
 <span class="c">.todoer/todos/fix-the-login-crash.md</span>
-<span class="p">$ </span>todoer add add-rate-limiting -l auth -d fix-the-login-crash</pre>
+<span class="p">$ </span>todoer add add-rate-limiting -l auth -d fix-the-login-crash
+<span class="p">$ </span>todoer show add-rate-limiting
+<span class="c">add-rate-limiting  (blocked)
+  file:        .todoer/todos/add-rate-limiting.md
+  assignee:    none
+  labels:      auth
+  depends on:  fix-the-login-crash
+  waits for:   fix-the-login-crash
+  needed by:   none
+  pr:          none</span></pre>
               <p class="result"><b>No commit.</b> Commit the todos yourself, or let the claim in the next step commit the new todo file.</p>
             </article>
 
@@ -792,6 +801,7 @@ work/api  feat/rate-limit
                 <tbody>
                   <tr><td><code>todoer add &lt;name&gt; [-l label] [-d name] [-D label] [text]</code></td><td>adds a todo</td></tr>
                   <tr><td><code>todoer ls [--mine] [--label l] [--available] [--json]</code></td><td>lists the todos</td></tr>
+                  <tr><td><code>todoer show &lt;name&gt; [--json]</code></td><td>prints all the data of a todo</td></tr>
                   <tr><td><code>todoer claim &lt;name&gt;... [--label l] [--force] [--no-commit]</code></td><td>sets you as the assignee and commits</td></tr>
                   <tr><td><code>todoer unclaim &lt;name&gt;... [--no-commit]</code></td><td>removes the assignee and commits</td></tr>
                   <tr><td><code>todoer done &lt;name&gt;...</code></td><td>removes the todos</td></tr>

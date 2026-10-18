@@ -1,4 +1,4 @@
-//! `ls`, `add`, `done`, `mv`, `check`, `claim` and `unclaim`. Only `claim` and `unclaim` commit.
+//! `ls`, `show`, `add`, `done`, `mv`, `check`, `claim` and `unclaim`. Only `claim` and `unclaim` commit.
 
 use crate::args::{Args, Flag, option, switch};
 use crate::colors;
@@ -145,6 +145,66 @@ pub fn ls(args: &Args) -> Result<(), String> {
         return Ok(());
     }
     print_rows(&listing, "");
+    Ok(())
+}
+
+pub const SHOW_FLAGS: &[Flag] = &[switch("json", None)];
+
+pub fn show(args: &Args) -> Result<(), String> {
+    args.expect_positional(1, 1, "todoer show <name> [--json]")?;
+    let project = Project::find()?;
+    let todos = Todos::load(&project.root)?;
+    todos.print_warnings();
+    let name = name_of(&args.positional[0]);
+    let todo = todos.require(&name)?;
+    let state = todos.state(todo);
+    let open = prs::list(&project)?;
+    let needed_by = todos.needed_by(&name);
+    let text = todo.doc.body.trim();
+    if args.has("json") {
+        let mut fields = todo_json(&todos, &open, todo, state);
+        fields.push(("neededBy", Value::strings(&needed_by)));
+        fields.push(("file", Value::str(&todo_path(&name))));
+        fields.push(("text", Value::str(text)));
+        println!("{}", json::stringify(&Value::object(fields)));
+        return Ok(());
+    }
+    let depends_on: Vec<String> = todo
+        .depends_on
+        .iter()
+        .cloned()
+        .chain(
+            todo.depends_on_labels
+                .iter()
+                .map(|label| format!("label {label}")),
+        )
+        .collect();
+    let rows = [
+        ("file", vec![todo_path(&name)]),
+        ("assignee", todo.assignee.iter().cloned().collect()),
+        ("labels", todo.labels.clone()),
+        ("depends on", depends_on),
+        ("waits for", todos.waits_summary(todo)),
+        ("needed by", needed_by),
+        ("pr", prs::names_with_comments(&prs::of_todo(&open, &name))),
+    ];
+    println!(
+        "{}  {}",
+        colors::bold(&name),
+        state_color(state, &format!("({state})"))
+    );
+    for (key, values) in rows {
+        let value = if values.is_empty() {
+            colors::gray("none")
+        } else {
+            values.join(", ")
+        };
+        println!("  {}  {value}", colors::pad(&format!("{key}:"), 11));
+    }
+    if !text.is_empty() {
+        println!();
+        println!("{text}");
+    }
     Ok(())
 }
 

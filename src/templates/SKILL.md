@@ -41,8 +41,9 @@ The person can ask for one todo, a list of todos or a label.
 
 ## Implement todos
 
-1. Read each todo file. Note the current branch of the person: `git branch --show-current`. This
-   is the branch that the pull request goes into, unless the person names another branch.
+1. Read each todo with `todoer show <name>`. Note the current branch of the person:
+   `git branch --show-current`. This is the branch that the pull request goes into, unless the
+   person names another branch.
 
 2. Make a branch for your work from that branch, in a worktree:
 
@@ -173,5 +174,5 @@ added.
 - Do not edit the files in `.todoer/` yourself. Use the commands.
 - Do not use `--force` or `--no-commit` unless the person asks.
 - Do not push. todoer never pushes.
-- Add `--json` to `todoer ls`, `todoer labels`, `todoer progress` and `todoer pr ls` for output
-  that you parse.
+- Add `--json` to `todoer ls`, `todoer show`, `todoer labels`, `todoer progress` and
+  `todoer pr ls` for output that you parse.

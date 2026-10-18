@@ -25,6 +25,7 @@ type Run = fn(&args::Args) -> Result<(), String>;
 
 const COMMANDS: &[(&str, &[Flag], Run)] = &[
     ("ls", commands::todos::LS_FLAGS, commands::todos::ls),
+    ("show", commands::todos::SHOW_FLAGS, commands::todos::show),
     ("add", commands::todos::ADD_FLAGS, commands::todos::add),
     ("done", &[], commands::todos::done),
     ("mv", &[], commands::todos::mv),

@@ -144,20 +144,23 @@ pub fn of_todo<'a>(prs: &'a [Pr], name: &str) -> Vec<&'a Pr> {
         .collect()
 }
 
-/// `pr: <name> (<n> comments), ...` for the pull requests of a todo.
-pub fn note(prs: &[&Pr]) -> Option<String> {
-    if prs.is_empty() {
-        return None;
-    }
-    let names: Vec<String> = prs
-        .iter()
+/// `<name> (<n> comments)` for each pull request.
+pub fn names_with_comments(prs: &[&Pr]) -> Vec<String> {
+    prs.iter()
         .map(|pr| match pr.review().comments.len() {
             0 => pr.name.clone(),
             1 => format!("{} (1 comment)", pr.name),
             count => format!("{} ({count} comments)", pr.name),
         })
-        .collect();
-    Some(format!("pr: {}", names.join(", ")))
+        .collect()
+}
+
+/// `pr: <name> (<n> comments), ...` for the pull requests of a todo.
+pub fn note(prs: &[&Pr]) -> Option<String> {
+    if prs.is_empty() {
+        return None;
+    }
+    Some(format!("pr: {}", names_with_comments(prs).join(", ")))
 }
 
 pub fn resolve(project: &Project, argument: &str) -> Result<Pr, String> {

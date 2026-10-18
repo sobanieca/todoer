@@ -11,6 +11,7 @@ For the workflow from a new todo to a merge, read the [guide](https://sobanieca.
 | Command                                         | Does                                                      |
 | ----------------------------------------------- | --------------------------------------------------------- |
 | `todoer ls [--mine] [--label l] [--available] [--json]` | lists the todos                                       |
+| `todoer show <name> [--json]`                   | prints all the data of a todo                             |
 | `todoer add <name> [-l label] [-d name] [-D label] [text]` | adds the todo `.todoer/todos/<name>.md`        |
 | `todoer done <name>...`                         | removes the todos, and removes them from each `dependsOn` |
 | `todoer mv <old> <new>`                         | renames a todo and changes each `dependsOn` to it         |
@@ -26,6 +27,10 @@ For the workflow from a new todo to a merge, read the [guide](https://sobanieca.
   waits for a todo that still exists, or for a label that another todo still has).
 - `ls` also shows each open pull request that names the todo in `todos`: `pr: <name>`, with the
   number of comments. `--json` adds the field `prs`.
+- `show` prints the state, the file, the assignee, the labels, the dependencies, the todos that
+  wait for it, the open pull requests and the text of the todo. `waits for` shows only the
+  dependencies that still block it. `--json` adds `neededBy`, `file` and `text` to the fields of
+  `ls --json`.
 - `add` and `mv` refuse a bad name and print a correct name. Give `-l`, `-d` and `-D` once for each
   label and each dependency. `-D label` (`--depends-on-label`) makes the todo wait for each todo of
   the label. When there is no text and stdin is not a terminal, `add` reads the text from
