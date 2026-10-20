@@ -3,6 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+    try {
+      var savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "light" || savedTheme === "dark") {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      }
+    } catch (e) {}
+    </script>
     <title>todoer guide</title>
     <meta name="description"
       content="How to use todoer: add todos, let an agent claim and implement them in a worktree, submit a pull request into your branch, review it, update it and merge it.">
@@ -522,6 +530,49 @@
       border-top: 1px solid var(--line);
       margin-top: 24px;
     }
+
+    /* theme toggle */
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      font: inherit;
+      cursor: pointer;
+    }
+    .theme-toggle:hover {
+      border-color: var(--accent);
+    }
+    .theme-toggle svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .theme-toggle .sun {
+      display: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .theme-toggle .sun {
+        display: block;
+      }
+      :root:not([data-theme="light"]) .theme-toggle .moon {
+        display: none;
+      }
+    }
+    :root[data-theme="dark"] .theme-toggle .sun {
+      display: block;
+    }
+    :root[data-theme="dark"] .theme-toggle .moon {
+      display: none;
+    }
     </style>
   </head>
   <body>
@@ -532,6 +583,11 @@
           <a href="./">Home</a>
           <a href="https://github.com/sobanieca/todoer/blob/main/docs/cli.md" target="_blank" rel="noopener">Commands</a>
           <a class="wide" href="https://github.com/sobanieca/todoer" target="_blank" rel="noopener">GitHub</a>
+          <button class="theme-toggle" type="button" aria-label="Switch between light and dark theme"
+          title="Switch theme">
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
         </nav>
       </header>
 
@@ -835,5 +891,19 @@ work/api  feat/rate-limit
         <a href="https://github.com/sobanieca/todoer/blob/main/docs/data.md" target="_blank" rel="noopener">Files</a>
       </footer>
     </div>
+    <script>
+    (function () {
+      var root = document.documentElement;
+      document.querySelector(".theme-toggle").addEventListener("click", function () {
+        var current = root.getAttribute("data-theme") ||
+          (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        var next = current === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try {
+          localStorage.setItem("theme", next);
+        } catch (e) {}
+      });
+    })();
+    </script>
   </body>
 </html>
