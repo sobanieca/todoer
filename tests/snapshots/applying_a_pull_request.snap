@@ -45,12 +45,11 @@ todos: fix-the-sum
 the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: update use-three-for-b" -- .todoer/prs/use-three-for-b
 
 $ git status --short && cat .todoer/prs/use-three-for-b/pr.md
- M .todoer/prs/use-three-for-b/pr.diff
  M .todoer/prs/use-three-for-b/pr.md
  M .todoer/prs/use-three-for-b/pr.patch
 ---
 author: me@example.com
-base: 67f6c998e752b3f436bf00934b70ae4fc6915598
+base: 152a5354b94f8530da1c168e93f8ebef98709885
 ---
 
 Four.
@@ -69,12 +68,12 @@ Applied patch to 'src/app.rs' with conflicts.
 $ todoer pr apply use-three-for-b --merge [cwd: shallow]
 exit code: 1
 --- stderr
-error: the patch does not apply on main - nothing changed. A three-way merge needs the base commit 67f6c998e752b3f436bf00934b70ae4fc6915598 of use-three-for-b, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run todoer pr apply use-three-for-b --merge again
+error: the patch does not apply on main - nothing changed. A three-way merge needs the base commit 152a5354b94f8530da1c168e93f8ebef98709885 of use-three-for-b, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run todoer pr apply use-three-for-b --merge again
 
 $ git switch -q -c tweak && todoer pr apply use-three-for-b [cwd: shallow]
 exit code: 1
 --- stderr
-error: the patch does not apply on tweak - nothing changed. A three-way merge needs the base commit 67f6c998e752b3f436bf00934b70ae4fc6915598 of use-three-for-b, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run todoer pr apply use-three-for-b again
+error: the patch does not apply on tweak - nothing changed. A three-way merge needs the base commit 152a5354b94f8530da1c168e93f8ebef98709885 of use-three-for-b, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run todoer pr apply use-three-for-b again
 
 $ todoer pr apply use-three-for-b
 applied use-three-for-b to the working tree of tweak-2 with conflicts in: src/app.rs - not committed
@@ -104,8 +103,8 @@ kept the description of the old pull request - give -m to replace it
 the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: update use-three-for-b" -- .todoer/prs/use-three-for-b
 
 $ git rev-parse HEAD && grep base .todoer/prs/use-three-for-b/pr.md
-1cc232a0161bf1df55e9c0da2894a6068ab24a04
-base: 1cc232a0161bf1df55e9c0da2894a6068ab24a04
+231594036ea6c2dfbf270a5204eddf0480b5270f
+base: 231594036ea6c2dfbf270a5204eddf0480b5270f
 
 $ grep -E '^[-+] ' .todoer/prs/use-three-for-b/pr.patch
 -    let b = 5;

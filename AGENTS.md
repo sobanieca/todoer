@@ -10,7 +10,7 @@ one Rust binary.
   markdown. Todos have no assignee, no state, no labels and no dependencies.
 - A todo file exists only while the work is open. `todoer done` and `todoer pr apply --merge`
   remove it. git history keeps it.
-- A pull request is a folder `.todoer/prs/<name>/`, with the patch, the diff and the review of the
+- A pull request is a folder `.todoer/prs/<name>/`, with the patch and the review of the
   latest submit. In the checkout of the branch that it goes into, `todoer pr submit --branch <work>`
   writes it in the working tree.
 - todoer has no main branch and no settings file. It works on the current checkout, on any branch.
@@ -65,8 +65,8 @@ Rules that keep the data correct:
   applies a patch. It never pushes or fetches.
 - **One lock.** Take `Project::lock` before a read that decides a change, and hold it until the
   write is done.
-- **A pull request is self-contained.** `pr.patch` is one squashed commit, for `git am`.
-  `pr.diff` is the combined diff for the review. The review needs no branch. `pr.md` names no
+- **A pull request is self-contained.** `pr.patch` is one squashed commit, for `git am`. The
+  review reads its diff, and needs no branch. `pr.md` names no
   branch: the branch that holds the folder is the branch that it goes into, and `-n <pr>` finds
   it for an update.
 - **A patch carries all the work, also in `.todoer/`.** Every git command of a submit excludes

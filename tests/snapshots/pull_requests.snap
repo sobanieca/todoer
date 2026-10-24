@@ -36,7 +36,6 @@ start
 ?? .todoer/prs/
 .
 ..
-pr.diff
 pr.md
 pr.patch
 
@@ -350,11 +349,9 @@ removed the review (9 comments) - git history keeps it
 the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: update use-three-for-b" -- .todoer/prs/use-three-for-b
 
 $ git status --short && ls .todoer/prs/use-three-for-b
- M .todoer/prs/use-three-for-b/pr.diff
  M .todoer/prs/use-three-for-b/pr.md
  M .todoer/prs/use-three-for-b/pr.patch
  D .todoer/prs/use-three-for-b/review.md
-pr.diff
 pr.md
 pr.patch
 
@@ -414,7 +411,6 @@ done: fix-the-sum
 the merge is staged and not committed - to commit it, run: git commit -m "todoer: merge use-three-for-b"
 
 $ git status --short && ls .todoer && cat src/app.rs
-D  .todoer/prs/use-three-for-b/pr.diff
 D  .todoer/prs/use-three-for-b/pr.md
 D  .todoer/prs/use-three-for-b/pr.patch
 D  .todoer/todos/fix-the-sum.md
@@ -439,14 +435,13 @@ Me <me@example.com>
 todoer: merge use-three-for-b
 
 
- .todoer/prs/use-three-for-b/pr.diff  | 42 ---------------------------
  .todoer/prs/use-three-for-b/pr.md    |  6 ----
  .todoer/prs/use-three-for-b/pr.patch | 56 ------------------------------------
  .todoer/todos/fix-the-sum.md         |  1 -
  docs/guide.md                        |  4 +++
  src/app.rs                           |  4 ++-
  src/{old.rs => lib.rs}               |  0
- 7 files changed, 7 insertions(+), 106 deletions(-)
+ 6 files changed, 7 insertions(+), 64 deletions(-)
 
 $ todoer pr ls && todoer ls
 no open pull requests

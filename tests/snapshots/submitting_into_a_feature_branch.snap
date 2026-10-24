@@ -13,7 +13,7 @@ exit code: 1
 error: fix-sum has changes that are not committed in <tmp>/fix-sum: src/app.rs - commit them first
 
 $ todoer pr submit --branch feature -n other [cwd: fix-sum]
-submitted other: 1 commit, 3 files, from feature into fix-sum
+submitted other: 1 commit, 2 files, from feature into fix-sum
 the pull request is not committed - to share it, run: git add -A .todoer/prs/other && git commit -m "todoer: submit other" -- .todoer/prs/other
 
 $ todoer pr apply use-three-for-b --merge
@@ -22,7 +22,6 @@ done: fix-the-sum
 the merge is staged and not committed - to commit it, run: git commit -m "todoer: merge use-three-for-b"
 
 $ git status --short && todoer ls
-D  .todoer/prs/use-three-for-b/pr.diff
 D  .todoer/prs/use-three-for-b/pr.md
 D  .todoer/prs/use-three-for-b/pr.patch
 D  .todoer/todos/fix-the-sum.md
@@ -37,12 +36,11 @@ the pull request is not committed - to share it, run: git add -A .todoer/prs/lat
 
 $ git switch -q main && todoer ls && todoer pr submit --branch feature -n feature
 fix-the-sum
-submitted feature: 4 commits squashed to 1, 8 files, from feature into main
+submitted feature: 4 commits squashed to 1, 7 files, from feature into main
 todos: fix-the-sum
 the pull request is not committed - to share it, run: git add -A .todoer/prs/feature && git commit -m "todoer: submit feature" -- .todoer/prs/feature
 
 $ grep -E '^diff' .todoer/prs/feature/pr.patch
-diff --git a/.todoer/prs/later/pr.diff b/.todoer/prs/later/pr.diff
 diff --git a/.todoer/prs/later/pr.md b/.todoer/prs/later/pr.md
 diff --git a/.todoer/prs/later/pr.patch b/.todoer/prs/later/pr.patch
 diff --git a/.todoer/todos/fix-the-sum.md b/.todoer/todos/fix-the-sum.md
@@ -56,7 +54,6 @@ fix-the-sum  pr: feature
 feature   open  by me@example.com
 base 67624b1   todos: fix-the-sum
 
- A  .todoer/prs/later/pr.diff      +7
  A  .todoer/prs/later/pr.md        +4
  A  .todoer/prs/later/pr.patch    +17
  D  .todoer/todos/fix-the-sum.md      -1
@@ -64,7 +61,7 @@ base 67624b1   todos: fix-the-sum
  M  docs/guide.md                  +1
  M  src/app.rs                     +1 -1
  R  src/old.rs -> src/lib.rs
-8 files, +30 -2
+7 files, +23 -2
 
 $ todoer pr apply feature --merge
 merged feature into main
@@ -72,10 +69,8 @@ done: fix-the-sum
 the merge is staged and not committed - to commit it, run: git commit -m "todoer: merge feature"
 
 $ git status --short && todoer ls && todoer pr ls
-D  .todoer/prs/feature/pr.diff
 D  .todoer/prs/feature/pr.md
 D  .todoer/prs/feature/pr.patch
-A  .todoer/prs/later/pr.diff
 A  .todoer/prs/later/pr.md
 A  .todoer/prs/later/pr.patch
 D  .todoer/todos/fix-the-sum.md

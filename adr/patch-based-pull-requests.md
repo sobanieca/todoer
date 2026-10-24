@@ -14,12 +14,11 @@ the pull request goes into only writes files in its own working tree.
 ## Decision
 
 **A pull request is the folder `.todoer/prs/<name>/`. In the checkout of the branch that the pull
-request goes into, `todoer pr submit --branch <work>` writes `pr.patch` and `pr.diff`
-(`git diff -M`) of the commits of `<work>` after the merge base with the current branch.
-`pr.patch` holds one commit: a squash of these commits.**
+request goes into, `todoer pr submit --branch <work>` writes `pr.patch` of the commits of `<work>` after the merge
+base with the current branch. `pr.patch` holds one commit: a squash of these commits.**
 
 - For the squash, todoer makes a commit with `git commit-tree` on the merge base, with the tree of
-  `<work>`. `git format-patch -1` of this commit, without the folder of the pull request, is `pr.patch`. No branch
+  `<work>`. `git format-patch -M -1` of this commit, without the folder of the pull request, is `pr.patch`. No branch
   changes.
 - The author of the squash is the person who submits. The message is `todoer: merge <name>` (see
   [the-merge-message-is-the-pull-request-name](the-merge-message-is-the-pull-request-name.md)).
@@ -47,7 +46,9 @@ request goes into, `todoer pr submit --branch <work>` writes `pr.patch` and `pr.
 
 ## Consequences
 
-- The review commands read only `pr.diff`. They need no worktree, so agents can use them.
+- The review commands read only the diff in `pr.patch`. They need no worktree, so agents can use
+  them.
+- The pull request has one copy of the change. The review and the merge read the same file.
 - The submit, the review and the merge happen in the checkout of the branch that the pull request
   goes into. An agent in a worktree runs the submit in the checkout of the person.
 - To submit into a branch, check it out first.

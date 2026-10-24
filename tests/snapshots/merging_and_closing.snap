@@ -14,7 +14,6 @@ the todos stay: fix-the-sum
 not committed - to share the close, run: git add -A .todoer/prs/first-try && git commit -m "todoer: close first-try" -- .todoer/prs/first-try
 
 $ git status --short && ls .todoer
- D .todoer/prs/first-try/pr.diff
  D .todoer/prs/first-try/pr.md
  D .todoer/prs/first-try/pr.patch
 prs
@@ -59,7 +58,6 @@ the merge is staged and not committed - to commit it, run: git commit -m "todoer
 
 $ git log --format=%s -1 && git status --short && cat src/app.rs
 Update second-try
-D  .todoer/prs/second-try/pr.diff
 D  .todoer/prs/second-try/pr.md
 D  .todoer/prs/second-try/pr.patch
 D  .todoer/todos/fix-the-sum.md
@@ -100,7 +98,6 @@ $ todoer pr close second-try && git status --short && todoer pr ls
 closed second-try
 the todos stay: fix-the-sum
 not committed - to share the close, run: git add -A .todoer/prs/second-try && git commit -m "todoer: close second-try" -- .todoer/prs/second-try
- D .todoer/prs/second-try/pr.diff
  D .todoer/prs/second-try/pr.md
  D .todoer/prs/second-try/pr.patch
 no open pull requests

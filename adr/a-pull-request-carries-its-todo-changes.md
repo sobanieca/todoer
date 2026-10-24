@@ -28,7 +28,7 @@ the work, also in `.todoer/`, except the folder of the pull request itself.**
 - Every git command of a submit excludes only `.todoer/prs/<name>/`. A new todo, a changed todo, a
   removed todo, `.todoer/areas` and the folders of other pull requests go into the patch.
 - The work removes its todos with `todoer done`, and commits the removal. The todos of a pull
-  request are the todo files that `pr.diff` removes. `pr.md` does not list them. There is no
+  request are the todo files that `pr.patch` removes. `pr.md` does not list them. There is no
   `--todo` option.
 - `pr apply` and `pr apply --merge` give `--exclude` to `git apply` for each todo file that the
   patch removes. Then they remove these todos by name, and stage the removal. Thus an edit of the

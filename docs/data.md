@@ -9,7 +9,6 @@ Commit them as other files.
   prs/<name>/
     pr.md                       author, base, the description
     pr.patch                    the latest submit as one squashed commit, for git am
-    pr.diff                     the combined diff of the latest submit, for the review
     review.md                   the review of the latest patch: the comments
   areas                         the areas of the code, with the patterns of their paths
 ```
@@ -48,7 +47,7 @@ What changed and why.
 - The body is the description, from `-m`. `--update` writes the whole file again. It copies the
   description of the old file when `-m` is not given.
 - `pr.md` does not list the todos. The todos of the pull request are the todo files that
-  `pr.diff` removes.
+  `pr.patch` removes.
 
 ## A review - `review.md`
 

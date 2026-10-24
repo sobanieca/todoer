@@ -9,15 +9,15 @@ keeps every old version of the folder.
 
 ## Decision
 
-**`todoer pr submit -n <pr> --update` replaces the whole pull request. todoer writes `pr.md`,
-`pr.patch` and `pr.diff` again, as for a new pull request, and removes the review.**
+**`todoer pr submit -n <pr> --update` replaces the whole pull request. todoer writes `pr.md`
+and `pr.patch` again, as for a new pull request, and removes the review.**
 
 - `pr.md` gets the author and the base of this submit.
 - `-m` replaces the description.
 - Without `-m`, the update copies the description of the old `pr.md`, and says so.
 - The todos of the pull request are the todos that the new patch removes.
 - There is no `## Update` section, no reply and no resolve.
-- `pr.patch` and `pr.diff` are the only patch files. There are no revision numbers.
+- `pr.patch` is the only patch file. There are no revision numbers.
 - Without `--update`, a submit never changes an open pull request.
 - `pr apply --merge` stops when the review has a comment. Only an update removes the review.
 

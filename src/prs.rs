@@ -1,5 +1,5 @@
-//! Pull requests: a folder `.todoer/prs/<name>/` with `pr.md`, the patch, the diff and the review
-//! of the latest submit. A submit writes the folder in the working tree of the branch that the pull
+//! Pull requests: a folder `.todoer/prs/<name>/` with `pr.md`, the patch and the review of the
+//! latest submit. A submit writes the folder in the working tree of the branch that the pull
 //! request goes into. todoer never commits it. The patch carries every change of the work, also in
 //! `.todoer/`, except the folder of the pull request itself. The todos that a pull request removes
 //! are the todos that it does.
@@ -15,7 +15,6 @@ use std::path::{Path, PathBuf};
 
 pub const REVIEW: &str = "review.md";
 pub const PATCH: &str = "pr.patch";
-pub const DIFF: &str = "pr.diff";
 
 #[derive(Debug, Clone)]
 pub struct Pr {
@@ -47,13 +46,13 @@ fn without_pr(name: Option<&str>) -> Vec<String> {
 impl Pr {
     fn load(dir: &Path, name: &str) -> Result<Pr, String> {
         let doc = Document::parse(&read_file(&dir.join("pr.md"))?);
-        let diff_text = std::fs::read_to_string(dir.join(DIFF)).unwrap_or_default();
+        let patch = std::fs::read_to_string(dir.join(PATCH)).unwrap_or_default();
         Ok(Pr {
             name: name.to_string(),
             dir: dir.to_path_buf(),
             author: doc.text("author").unwrap_or_default(),
             base: doc.text("base").unwrap_or_default(),
-            todos: removed_todos(&diff::parse(&diff_text)),
+            todos: removed_todos(&diff::parse(&patch)),
             doc,
         })
     }
@@ -76,12 +75,12 @@ impl Pr {
         format!("{}/{name}", self.rel_dir())
     }
 
-    pub fn diff_text(&self) -> String {
-        std::fs::read_to_string(self.dir.join(DIFF)).unwrap_or_default()
+    pub fn patch(&self) -> String {
+        std::fs::read_to_string(self.dir.join(PATCH)).unwrap_or_default()
     }
 
     pub fn files(&self) -> Vec<diff::File> {
-        diff::parse(&self.diff_text())
+        diff::parse(&self.patch())
     }
 
     pub fn review(&self) -> Review {
@@ -336,15 +335,14 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
         "format-patch",
         "--stdout",
         "--no-signature",
+        "-M",
         "-1",
         &squashed,
     ];
     format_patch.extend(&pathspec);
     let patch = git::check(root, &format_patch)?.stdout;
-    let mut diff_args = vec!["diff", "-M", &base, &from];
-    diff_args.extend(&pathspec);
-    let diff_text = git::check(root, &diff_args)?.stdout;
-    if diff_text.trim().is_empty() {
+    let files = diff::parse(&patch);
+    if files.is_empty() {
         return Err(format!(
             "the commits on {from} change no file outside {}/",
             pr_dir_path(name)
@@ -385,18 +383,17 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
         dir: prs_dir(project).join(name),
         author: git::user_email(root)?,
         base,
-        todos: removed_todos(&diff::parse(&diff_text)),
+        todos: removed_todos(&files),
         doc,
     };
     let pr_md = pr.render();
     write_file(&pr.dir.join(PATCH), &patch)?;
-    write_file(&pr.dir.join(DIFF), &diff_text)?;
     write_file(&pr.dir.join("pr.md"), &pr_md)?;
     if pr.dir.join(REVIEW).exists() {
         std::fs::remove_file(pr.dir.join(REVIEW))
             .map_err(|error| format!("cannot remove {}: {error}", pr.rel(REVIEW)))?;
     }
-    let files = diff::parse(&diff_text).len();
+    let files = files.len();
     Ok(Submitted {
         pr,
         into,

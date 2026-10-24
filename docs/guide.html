@@ -637,7 +637,7 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span></pre>
             <h2>The ideas</h2>
             <ul>
               <li>A todo is a file <code>.todoer/todos/&lt;name&gt;.md</code>. The name is its id and its title. The file is plain markdown. A todo has no assignee and no state.</li>
-              <li>A pull request is a folder <code>.todoer/prs/&lt;name&gt;/</code> with a patch, a diff and a review. It is on the branch that it goes into, so you review and merge it on your branch.</li>
+              <li>A pull request is a folder <code>.todoer/prs/&lt;name&gt;/</code> with a patch and a review. It is on the branch that it goes into, so you review and merge it on your branch.</li>
               <li>The patch carries all the work, also the changes in <code>.todoer/</code>. The todos that the patch removes are the todos of the pull request.</li>
               <li>todoer knows no main branch. It works on the branch that is checked out. Your branch can be <code>main</code> or a feature branch.</li>
               <li>todoer never commits. It changes the files in your working tree, and you decide when to commit them.</li>

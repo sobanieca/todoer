@@ -8,8 +8,8 @@ the patch and add the comments that a person asks for.
 
 ## Decision
 
-**A person reviews a pull request by talking with an agent. The agent reads `pr.diff` with
-`todoer pr show`, and adds each comment with `todoer pr comment <pr> <target> <text>`.**
+**A person reviews a pull request by talking with an agent. The agent reads the diff of `pr.patch`
+with `todoer pr show`, and adds each comment with `todoer pr comment <pr> <target> <text>`.**
 
 - todoer does not make review worktrees. There is no `pr checkout` and no `worktreesDir`.
 - Every review command needs the pull request as an argument.

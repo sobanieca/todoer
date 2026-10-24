@@ -1,4 +1,4 @@
-//! The parser for the combined diff of a pull request (`git diff -M`).
+//! The parser for the diff in the patch of a pull request (`git format-patch -M`).
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Kind {
