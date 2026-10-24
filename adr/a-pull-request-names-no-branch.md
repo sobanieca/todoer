@@ -17,15 +17,18 @@ changes.
 a name of a pull request and does not find a branch for the person.**
 
 - The branch that holds `.todoer/prs/<name>/` is the branch that the pull request goes into.
+- `--branch` names the branch of the work. The submit runs in the checkout of the branch that the
+  pull request goes into.
 - `pr.md` holds only the author, the base and the todos.
-- `pr submit` finds the pull request by `-n`, only in the open pull requests of `--branch`.
+- `pr submit` finds the pull request by `-n`, only in the open pull requests of the current
+  checkout.
 - A submit without `--update` never changes an open pull request. It stops and names
   `-n <pr> --update`.
-- `--update` with a name that `--branch` does not have stops. The error lists the open pull
-  requests of `--branch`.
+- `--update` with a name that the current checkout does not have stops. The error lists the open
+  pull requests of the current checkout.
 - Each error names `--branch` and the pull request, so the person can copy the next command.
-- `pr apply` prints the update command with a placeholder for `--branch`. It does not look for the
-  branch in other local branches.
+- `pr apply` prints the update command with the current branch in `--branch`. It does not look
+  for the checkout of the branch that the pull request goes into.
 
 ## Consequences
 

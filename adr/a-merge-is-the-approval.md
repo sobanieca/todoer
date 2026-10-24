@@ -15,9 +15,9 @@ person commits the review and gives it to an agent.**
 - `review.md` holds only the comments. It has no front matter.
 - `pr comment` writes `review.md` and does not commit it. The person commits it with git when the
   review is done.
-- `pr ls`, `pr summary` and `progress` show the number of comments.
+- `pr ls`, `pr show` and `ls` show the number of comments.
 
 ## Consequences
 
 - A review is one commit that the person makes.
-- `pr merge` still stops while the review has a comment.
+- `pr apply --merge` still stops while the review has a comment.

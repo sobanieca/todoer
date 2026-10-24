@@ -1,62 +1,34 @@
 # todoer - Files
 
-todoer writes plain files. A person and an agent can read all of them. Commit them as other files.
+todoer writes plain files. A person and an agent can read all of them. todoer never commits them.
+Commit them as other files.
 
 ```
 .todoer/
-  todos/<name>.md               a todo: optional front matter and a description
+  todos/<name>.md               a todo: plain markdown, what to do
   prs/<name>/
-    pr.md                       author, base, todos, the description
+    pr.md                       author, base, the description
     pr.patch                    the latest submit as one squashed commit, for git am
     pr.diff                     the combined diff of the latest submit, for the review
     review.md                   the review of the latest patch: the comments
-  labels/<label>.md             a label rule: which todos must have the label, in plain words
   areas                         the areas of the code, with the patterns of their paths
 ```
 
-A patch never contains `.todoer/`. `pr submit` writes the folder of a pull request on the branch
-that it goes into. `merge` and `close` remove the folder. git history keeps it.
+A patch contains all the changes of the work, also in `.todoer/`, except the folder of its own
+pull request. `pr submit` writes the folder of a pull request in the working tree of the branch
+that it goes into. `merge` and `close` remove the folder. git history keeps it after you commit it.
 
 ## A todo - `.todoer/todos/<name>.md`
 
 ```markdown
----
-assignee: you@example.com
-labels: [auth]
-dependsOn: [fix-the-login-crash]
-dependsOnLabels: [auth-backend-refactor]
----
-
 What to do and how to check it. Images are plain markdown links.
 ```
 
-- The name matches `^[a-z0-9-]+$`. It is the id and the title. The folder has no subfolders: use
-  labels to collect todos.
-- The front matter is optional. A file with no front matter is a new todo.
-- `assignee` is a git email. `todoer claim` sets it and commits the file. A todo with an assignee
-  is in progress.
-- `dependsOn` lists names. A todo waits while a todo of the list exists.
-- `dependsOnLabels` lists labels. A todo waits while another todo has a label of the list. When
-  no other todo has the label, `done`, `pr merge`, `label rm` and `labels rm` remove it from the
-  list.
-- The file exists only while the work is open. `todoer done` and `todoer pr merge` remove it.
+- The name matches `^[a-z0-9-]+$`. It is the id and the title. The folder has no subfolders.
+- The file is plain markdown. todoer reads no fields from it. A todo has no assignee and no state.
+- The file exists only while the work is open. `todoer done` and `todoer pr apply --merge` remove
+  it.
 - todoer reads only the `*.md` files in `.todoer/todos/`.
-- A list is `[a, b]`. Put an item in double quotes when it has a comma.
-- todoer changes only the fields that a command names. The other lines stay as they are.
-
-## A label rule - `.todoer/labels/<label>.md`
-
-```markdown
-Add this label to a todo that changes the login, the sessions or the tokens.
-Do not add it to a todo that only changes the docs of the login.
-```
-
-- The file name is the label. It matches `^[a-z0-9-]+$`. The body is the rule.
-- todoer does not read the rule. The agent reads it before `todoer add`, and adds the label to each
-  todo that the rule matches.
-- `todoer labels rule` writes the file. `todoer labels rm` and `todoer labels mv` remove and rename
-  it. They do not commit. Commit the rules as other files.
-- `todoer check` reports a file with a bad name, and an empty rule.
 
 ## A pull request - `pr.md`
 
@@ -64,7 +36,6 @@ Do not add it to a todo that only changes the docs of the login.
 ---
 author: you@example.com
 base: 3f2a91c0d8e6b3c7a1d2e4f5a6b7c8d9e0f1a2b3
-todos: [fix-the-login-crash]
 ---
 
 What changed and why.
@@ -75,7 +46,9 @@ What changed and why.
 - `base` is the merge base of the latest submit. `pr.md` does not name a branch. The pull request
   goes into the branch that holds the folder. It does not need the branch of the work.
 - The body is the description, from `-m`. `--update` writes the whole file again. It copies the
-  description and the todos of the old file when `-m` or `--todo` is not given.
+  description of the old file when `-m` is not given.
+- `pr.md` does not list the todos. The todos of the pull request are the todo files that
+  `pr.diff` removes.
 
 ## A review - `review.md`
 

@@ -1,10 +1,10 @@
-$ todoer add port-cli-parser -l rust-port 'Parse the arguments.'
+$ todoer add port-cli-parser 'Parse the arguments.'
 .todoer/todos/port-cli-parser.md
 
-$ todoer add port-config -l rust-port -l config -d port-cli-parser
+$ todoer add port-config
 .todoer/todos/port-config.md
 
-$ echo 'From stdin.' | todoer add release-v1 -d .todoer/todos/port-config.md
+$ echo 'From stdin.' | todoer add release-v1
 .todoer/todos/release-v1.md
 
 $ todoer add port-cli-parser
@@ -15,98 +15,61 @@ error: the todo port-cli-parser exists - pick another name
 $ todoer add
 exit code: 1
 --- stderr
-error: a todo needs a name - use todoer add <name> [-l label]... [-d name]... [-D label]... [text]
+error: a todo needs a name - use todoer add <name> [text]
 
 $ todoer add Fix_Login
 exit code: 1
 --- stderr
 error: "Fix_Login" is not a todo name - use fix-login
 
-$ todoer add x -l Bad
+$ todoer add x -l label
 exit code: 1
 --- stderr
-error: "Bad" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
+error: unknown option -l for "todoer add" - run todoer add --help
 
-$ todoer add x -d missing
-exit code: 1
---- stderr
-error: there is no todo missing - run todoer ls
-
---- .todoer/todos/port-config.md
----
-labels: [rust-port, config]
-dependsOn: [port-cli-parser]
----
+--- .todoer/todos/port-cli-parser.md
+Parse the arguments.
 
 --- .todoer/todos/release-v1.md
----
-dependsOn: [port-config]
----
-
 From stdin.
 
 $ todoer ls
-available    port-cli-parser
-blocked      port-config      waits for port-cli-parser
-blocked      release-v1       waits for port-config
+port-cli-parser
+port-config
+release-v1
 
-$ todoer ls --available
-available    port-cli-parser
-
-$ todoer ls --label config --json
+$ todoer ls --json
 [
   {
+    "name": "port-cli-parser",
+    "prs": []
+  },
+  {
     "name": "port-config",
-    "state": "blocked",
-    "assignee": null,
-    "labels": [
-      "rust-port",
-      "config"
-    ],
-    "dependsOn": [
-      "port-cli-parser"
-    ],
-    "dependsOnLabels": [],
-    "waitsFor": [
-      "port-cli-parser"
-    ],
+    "prs": []
+  },
+  {
+    "name": "release-v1",
     "prs": []
   }
 ]
 
-$ cd .todoer/todos && todoer claim port-cli-parser.md
-claimed port-cli-parser for me@example.com
+$ todoer ls --mine
+exit code: 1
+--- stderr
+error: unknown option --mine for "todoer ls" - run todoer ls --help
 
-$ todoer ls
-in-progress  port-cli-parser  me@example.com
-blocked      port-config      waits for port-cli-parser
-blocked      release-v1       waits for port-config
+$ todoer show port-cli-parser
+port-cli-parser
+  file:  .todoer/todos/port-cli-parser.md
+  pr:    none
 
-$ todoer show port-config
-port-config  (blocked)
-  file:        .todoer/todos/port-config.md
-  assignee:    none
-  labels:      rust-port, config
-  depends on:  port-cli-parser
-  waits for:   port-cli-parser
-  needed by:   release-v1
-  pr:          none
+Parse the arguments.
 
-$ todoer show .todoer/todos/port-cli-parser.md --json
+$ cd .todoer/todos && todoer show port-cli-parser.md --json
 {
   "name": "port-cli-parser",
-  "state": "in-progress",
-  "assignee": "me@example.com",
-  "labels": [
-    "rust-port"
-  ],
-  "dependsOn": [],
-  "dependsOnLabels": [],
-  "waitsFor": [],
   "prs": [],
-  "neededBy": [
-    "port-config"
-  ],
   "file": ".todoer/todos/port-cli-parser.md",
   "text": "Parse the arguments."
 }
@@ -116,243 +79,51 @@ exit code: 1
 --- stderr
 error: there is no todo missing - run todoer ls
 
+$ todoer claim port-config
+exit code: 1
+--- stderr
+error: unknown command "claim" - run todoer help
+
 $ todoer show
 exit code: 1
 --- stderr
 error: use: todoer show <name> [--json]
 
-$ todoer dep show port-config
-port-config  (blocked)
-
-waits for:
-  port-cli-parser  (in-progress)
-
-needed by:
-  release-v1  (blocked)
-
-$ todoer dep add port-cli-parser release-v1
+$ todoer edit port-config
 exit code: 1
 --- stderr
-error: port-cli-parser cannot depend on release-v1 - release-v1 already depends on port-cli-parser, so this makes a cycle
-
-$ todoer dep add release-v1 release-v1
-exit code: 1
---- stderr
-error: release-v1 cannot depend on itself
-
-$ todoer dep add release-v1 port-cli-parser
-release-v1 depends on port-cli-parser
-
-$ todoer dep show port-cli-parser
-port-cli-parser  (in-progress)
-
-waits for:
-  nothing
-
-needed by:
-  port-config  (blocked)
-    release-v1  (blocked)
-  release-v1  see above
-
-$ todoer dep rm release-v1 port-cli-parser
-release-v1 no longer depends on port-cli-parser
-
-$ todoer dep rm release-v1 port-cli-parser
-exit code: 1
---- stderr
-error: release-v1 does not depend on port-cli-parser
-
-$ todoer label add release-v1 release
-release-v1: added the label release
-
-$ todoer label add release-v1 rust-port
-release-v1: added the label rust-port
-
-$ todoer label rm release-v1 release
-release-v1: removed the label release
-
-$ todoer label add release-v1 Release
-exit code: 1
---- stderr
-error: "Release" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
+error: unknown command "edit" - run todoer help
 
 $ todoer labels
-config     1 todo
-rust-port  3 todos
-
-$ todoer progress
-config     0 in progress, 0 in a pull request, 1 not started  [-]
-rust-port  1 in progress, 0 in a pull request, 2 not started  [=--]
-
-$ todoer progress rust-port
-rust-port  1 in progress, 0 in a pull request, 2 not started  [=--]
-
-in progress (1)
-  port-cli-parser  me@example.com
-
-not started (2)
-  port-config      waits for port-cli-parser
-  release-v1       waits for port-config
-
-$ todoer progress rust-port --json
-{
-  "label": "rust-port",
-  "total": 3,
-  "inProgress": [
-    {
-      "name": "port-cli-parser",
-      "state": "in-progress",
-      "assignee": "me@example.com",
-      "prs": [],
-      "waitsFor": []
-    }
-  ],
-  "inPullRequest": [],
-  "notStarted": [
-    {
-      "name": "port-config",
-      "state": "blocked",
-      "assignee": null,
-      "prs": [],
-      "waitsFor": [
-        "port-cli-parser"
-      ]
-    },
-    {
-      "name": "release-v1",
-      "state": "blocked",
-      "assignee": null,
-      "prs": [],
-      "waitsFor": [
-        "port-config"
-      ]
-    }
-  ]
-}
-
-$ todoer progress missing
 exit code: 1
 --- stderr
-error: no todo has the label missing - run todoer labels
+error: unknown command "labels" - run todoer help
 
-$ todoer labels rm config
-port-config: removed the label config
-
-$ todoer labels rm config
+$ todoer check
 exit code: 1
 --- stderr
-error: no todo and no rule has the label config - run todoer labels
-
-$ todoer labels rm
-exit code: 1
---- stderr
-error: use: todoer labels rm <label>
-
-$ todoer label add port-cli-parser core
-port-cli-parser: added the label core
-
-$ todoer labels mv rust-port core
-port-cli-parser: renamed the label rust-port -> core
-port-config: renamed the label rust-port -> core
-release-v1: renamed the label rust-port -> core
-
---- .todoer/todos/port-cli-parser.md
----
-labels: [core]
-assignee: me@example.com
----
-
-Parse the arguments.
-
-$ todoer labels mv core Core
-exit code: 1
---- stderr
-error: "Core" is not a label - use lowercase letters, digits and hyphens, with a letter or digit at each end
-
-$ todoer labels mv core core
-exit code: 1
---- stderr
-error: core and core are the same label - give a new name
-
-$ todoer labels mv missing other
-exit code: 1
---- stderr
-error: no todo and no rule has the label missing - run todoer labels
-
-$ todoer labels mv core rust-port
-port-cli-parser: renamed the label core -> rust-port
-port-config: renamed the label core -> rust-port
-release-v1: renamed the label core -> rust-port
-
-$ todoer labels
-rust-port  3 todos
+error: unknown command "check" - run todoer help
 
 $ todoer mv port-config config-file
-renamed port-config -> config-file
-updated dependsOn in release-v1
-
---- .todoer/todos/release-v1.md
----
-dependsOn: [config-file]
-labels: [rust-port]
----
-
-From stdin.
-
-$ todoer mv config-file Config_File
 exit code: 1
 --- stderr
-error: "Config_File" is not a todo name - use config-file
-
-$ todoer mv missing other
-exit code: 1
---- stderr
-error: there is no todo missing - run todoer ls
+error: unknown command "mv" - run todoer help
 
 $ todoer done port-cli-parser
 done: port-cli-parser
-removed port-cli-parser from dependsOn in config-file
-
---- .todoer/todos/config-file.md
----
-labels: [rust-port]
----
 
 $ todoer ls
-available    config-file
-blocked      release-v1   waits for config-file
-
-$ todoer check
-2 todos and 0 label rules, no problems
-
-$ todoer check
-exit code: 1
-Bad: "Bad" is not a todo name - use bad
-Bad: bad label "Rust" - use lowercase letters, digits and hyphens, with a letter or digit at each end
-Bad: bad assignee "bob" - use a git email
-Bad: dependsOn names gone, which is not a todo
-Bad: dependsOn names the todo itself
---- stderr
-error: 5 problems in 3 todos and 0 label rules
+port-config
+release-v1
 
 $ todoer ls
-in-progress  Bad          bob
-available    config-file
-blocked      release-v1   waits for config-file
+Bad
+port-config
+release-v1
 --- stderr
 warning: Bad: "Bad" is not a todo name - use bad
-warning: Bad: bad label "Rust" - use lowercase letters, digits and hyphens, with a letter or digit at each end
-warning: Bad: bad assignee "bob" - use a git email
-warning: Bad: dependsOn names gone, which is not a todo
-warning: Bad: dependsOn names the todo itself
 
 $ git status --short && git log --format=%s
- D .todoer/todos/port-cli-parser.md
-?? .todoer/todos/Bad.md
-?? .todoer/todos/config-file.md
-?? .todoer/todos/drafts/
-?? .todoer/todos/notes.txt
-?? .todoer/todos/release-v1.md
-todoer: claim port-cli-parser
+?? .todoer/
 init
 

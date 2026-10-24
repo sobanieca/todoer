@@ -4,90 +4,55 @@ todoer - todos and pull requests of a git project as plain files, for people and
 A todo is a file .todoer/todos/<name>.md. The name is its id and its title.
 A pull request is a folder .todoer/prs/<name>/ with a patch and a review, on the branch that it
 goes into. The name is its id and its title.
-todoer reads and writes the files of the current checkout, on any branch. claim, unclaim and the
-pull request commands commit only their own files. The other todo commands do not commit.
+todoer reads and writes the files of the current checkout, on any branch. todoer never commits:
+you commit the changes.
 
 If you are an AI agent, run 'todoer skill' to learn the todoer workflow.
 
 Todos:
-  ls [--mine] [--label l] [--available] [--json]
-                            list the todos and their open pull requests; outside a git
+  ls [--json]               list the todos and their open pull requests; outside a git
                             repository, list the todos of each project in the current folder
                             and its subfolders, with its path and its checked-out branch
-  show <name> [--json]      print the state, the assignee, the labels, the dependencies, the
-                            todos that need it, the pull requests and the text of a todo
-  add <name> [-l label]... [-d name]... [-D label]... [text]
-                            add a todo; -D makes it wait for each todo of the label; the
-                            text can come on stdin
-  done <name>...            remove the todos and remove them from each dependsOn
-  mv <old> <new>            rename a todo and change each dependsOn to it
-  check                     report bad todos and bad label rules; exit with 1 when there is a
-                            problem
-  claim <name>... [--label l] [--force] [--no-commit]
-                            set the assignee to me and commit the todos; --label claims each
-                            todo of the label that is free
-  unclaim <name>... [--no-commit]
-                            remove the assignee and commit the todos
-
-Dependencies and labels:
-  dep add <name> [<name>...] [-l label]...
-                            the first todo depends on each other todo, and on each todo of
-                            each label
-  dep rm <name> [<name>...] [-l label]...
-                            remove those dependencies
-  dep show <name>           print what the todo waits for, and what needs it
-  label add <name> <label>  add a label to a todo
-  label rm <name> <label>   remove a label from a todo
-  labels [--json]           list the labels with the number of todos and the rule of each label
-  labels rm <label>         remove the label from each todo, and remove its rule
-  labels mv <old> <new>     rename the label in each todo, and rename its rule
-  labels rule <label> [text]
-                            write the rule of the label; the text can come on stdin
-  labels rule <label> --rm  remove the rule of the label
-  progress [label] [--json] print the todos of a label that are in progress, in a pull request
-                            and not started; or one line for each label
-
-  A label rule is a file .todoer/labels/<label>.md. It tells in plain words which todos must have
-  the label. todoer does not read the words: the agent reads the rules and adds the labels.
-  A todo that depends on a label waits while another todo has the label. When no other todo has
-  the label, todoer removes the label from dependsOnLabels.
+  show <name> [--json]      print the file, the pull requests and the text of a todo
+  add <name> [text]         add a todo; the text can come on stdin
+  done <name>...            remove the todos
 
 Pull requests:
-  pr submit --branch b -n name [-m text] [--todo name]... [--update] [--no-commit]
-                            squash the commits of the current branch after the merge base with b
-                            into one commit, write it as a pull request, and commit it on b;
-                            -n gives the name;
+  pr submit --branch b -n name [-m text] [--update]
+                            run it on the branch that the pull request goes into; squash the
+                            commits of the branch b after the merge base into one commit, and
+                            write it as a pull request in the working tree; -n gives the name;
                             -n <pr> --update writes the pull request <pr> again and removes
-                            its review; without -m or --todo, it keeps the old ones
+                            its review; without -m, it keeps the old description
   pr ls [--json]            list the pull requests of the current checkout
-  pr merge <pr> [--no-commit]
-                            apply the patch on the current branch and remove the pull request
-                            and its todos, in one commit; stops when the review has a comment
-  pr apply <pr>             apply the patch to the working tree of the current branch, and do
-                            not commit
-  pr close <pr> [--no-commit]
-                            remove the pull request without a merge
-  pr summary <pr> [-a area,...] [-x area,...]
-                            print the files, the comment counts and the changes in each area
-  pr details <pr> [file...] [--context N] [--lines 40-80] [-a area,...] [-x area,...]
-                            print the diff with line numbers and comments
+  pr show <pr> [file...] [--summary] [--context N] [--lines 40-80] [-a area,...] [-x area,...]
+                            print the summary and the diff with line numbers and comments;
+                            --summary prints only the files, the comment counts and the
+                            changes in each area; with files, print only the diff of these files
   pr comment <pr> [target] [text]
                             add a comment to review.md; with no target, on the whole pull
                             request; you commit the review when it is done
-  pr review <pr> [-a area,...] [-x area,...]
-                            print the summary and the details
+  pr apply <pr>             apply the patch to the working tree of the current branch, and do
+                            not commit; use it to run the code or to continue the work; on a
+                            conflict, it writes conflict markers for you to resolve
+  pr apply <pr> --merge     merge: apply the patch to the working tree of the current branch,
+                            remove the pull request and its todos, and stage these changes;
+                            stops when the review has a comment
+  pr close <pr>             remove the pull request without a merge
 
+  The patch holds all the changes of the branch b, also in .todoer/, except the folder of the
+  pull request. Run todoer done in the work: the todos that the patch removes are the todos of
+  the pull request. A merge removes them by name, also when they changed on the current branch.
   A target is path:42, path:40-45, path:old:12 (a removed line), path (a file) or folder/.
   A target can name a file that the pull request does not change.
   .todoer/areas names the areas of the code, one per line: "<area>: <pattern>...".
   The patterns use the gitignore rules. The last pattern that matches a path wins.
   A pattern with no "/" matches the file name in each folder, for example "unit-tests: *.test.js".
   -a security,e2e-tests (--area) shows only the files in these areas, and -x e2e-tests
-  (--exclude) hides them, in summary, details and review.
-  --no-commit keeps the changes in the working tree. When the checkout has other changes that
-  are not committed, todoer does not commit and tells you. Then commit the changes yourself.
-  There is no approve: to accept a pull request, merge it. To ask for changes, commit the review
-  and give it to an agent.
+  (--exclude) hides them, in pr show.
+  todoer never commits. submit, merge and close print the git command that commits their change.
+  There is no approve: to accept a pull request, merge it with pr apply --merge. To ask for
+  changes, commit the review and give it to an agent.
 
 Other:
   skill [--init]            print the agent workflow, or write it as a skill; in a git repository,
@@ -111,33 +76,32 @@ $ todoer pr
 exit code: 1
 --- stderr
 error: use:
-  todoer pr submit --branch <branch> -n <name> [-m <text>] [--todo <name>]... [--update] [--no-commit]
+  todoer pr submit --branch <branch> -n <name> [-m <text>] [--update]
   todoer pr ls [--json]
-  todoer pr merge <pr> [--no-commit]
-  todoer pr apply <pr>
-  todoer pr close <pr> [--no-commit]
-  todoer pr summary <pr> [-a <area,...>] [-x <area,...>]
-  todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
+  todoer pr show <pr> [file...] [--summary] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
   todoer pr comment <pr> [target] ["<text>"]
-  todoer pr review <pr> [-a <area,...>] [-x <area,...>]
+  todoer pr apply <pr> [--merge]
+  todoer pr close <pr>
 
 $ todoer pr nope
 exit code: 1
 --- stderr
 error: unknown command "todoer pr nope"
 use:
-  todoer pr submit --branch <branch> -n <name> [-m <text>] [--todo <name>]... [--update] [--no-commit]
+  todoer pr submit --branch <branch> -n <name> [-m <text>] [--update]
   todoer pr ls [--json]
-  todoer pr merge <pr> [--no-commit]
-  todoer pr apply <pr>
-  todoer pr close <pr> [--no-commit]
-  todoer pr summary <pr> [-a <area,...>] [-x <area,...>]
-  todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
+  todoer pr show <pr> [file...] [--summary] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
   todoer pr comment <pr> [target] ["<text>"]
-  todoer pr review <pr> [-a <area,...>] [-x <area,...>]
+  todoer pr apply <pr> [--merge]
+  todoer pr close <pr>
 
-$ todoer pr details --help
-use: todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
+$ todoer pr show --help
+use: todoer pr show <pr> [file...] [--summary] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]
+
+$ todoer pr apply x --no-commit
+exit code: 1
+--- stderr
+error: unknown option --no-commit for "todoer pr apply" - run todoer pr apply --help
 
 $ todoer done
 exit code: 1

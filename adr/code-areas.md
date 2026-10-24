@@ -8,7 +8,7 @@ team files and a person for each rule. A name for each part of the code is suffi
 
 ## Decision
 
-**`.todoer/areas` names the areas of the code. `pr summary` shows each area that a pull request
+**`.todoer/areas` names the areas of the code. `pr show` shows each area that a pull request
 changes, with the number of files and lines. `-a <area,...>` shows only the files of these areas,
 and `-x <area,...>` hides them.**
 

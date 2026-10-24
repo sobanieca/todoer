@@ -1,5 +1,5 @@
-//! Finds the checkout of the current folder, holds the lock, and makes the commits of todoer on
-//! the current branch.
+//! Finds the checkout of the current folder, holds the lock, and stages the changes of a merge.
+//! todoer never commits.
 
 use crate::git;
 use std::path::{Component, Path, PathBuf};
@@ -10,11 +10,6 @@ pub const DATA_DIR: &str = ".todoer";
 pub struct Project {
     pub root: PathBuf,
     pub cwd: PathBuf,
-}
-
-pub struct CommitPlan {
-    pub commit: bool,
-    pub others: Vec<String>,
 }
 
 impl Project {
@@ -54,33 +49,21 @@ impl Project {
         Lock::take(&git::common_dir(&self.root)?.join("todoer.lock"))
     }
 
-    pub fn plan_commit(&self, no_commit: bool, own: &[String]) -> Result<CommitPlan, String> {
+    pub fn changes(&self, ignored: &str) -> Result<Vec<String>, String> {
         let status = git::check(
             &self.root,
             &["status", "--porcelain=v1", "--untracked-files=no"],
         )?;
-        let others = status
+        Ok(status
             .stdout
             .lines()
             .filter_map(|line| line.get(3..))
             .map(|path| path.rsplit(" -> ").next().unwrap_or(path).to_string())
-            .filter(|path| !own.iter().any(|mine| is_inside(path, mine)))
-            .collect::<Vec<_>>();
-        Ok(CommitPlan {
-            commit: !no_commit && others.is_empty(),
-            others,
-        })
+            .filter(|path| ignored.is_empty() || !is_inside(path, ignored))
+            .collect())
     }
 
-    pub fn commit(&self, lock: &Lock, message: &str, paths: &[String]) -> Result<(), String> {
-        self.commit_paths(lock, &["-m", message], paths)
-    }
-
-    pub fn amend(&self, lock: &Lock, paths: &[String]) -> Result<(), String> {
-        self.commit_paths(lock, &["--amend", "--no-edit"], paths)
-    }
-
-    fn commit_paths(&self, _lock: &Lock, options: &[&str], paths: &[String]) -> Result<(), String> {
+    pub fn stage(&self, _lock: &Lock, paths: &[String]) -> Result<(), String> {
         let mut present = Vec::new();
         for path in paths {
             if self.root.join(path).exists() || git::is_tracked(&self.root, path)? {
@@ -92,94 +75,24 @@ impl Project {
         }
         let mut add = vec!["add", "-A", "-f", "--"];
         add.extend(&present);
-        retry_on_index_lock(|| git::run(&self.root, &add))?;
-        let mut commit = vec!["commit", "-q", "--no-verify"];
-        commit.extend(options);
-        commit.push("--");
-        commit.extend(&present);
-        retry_on_index_lock(|| git::run(&self.root, &commit))
-    }
-
-    pub fn commit_to_branch(
-        &self,
-        _lock: &Lock,
-        branch: &str,
-        message: &str,
-        folder: &str,
-        files: &[(String, String)],
-    ) -> Result<(), String> {
-        let root = &self.root;
-        let reference = format!("refs/heads/{branch}");
-        let old = git::text(root, &["rev-parse", "--verify", &reference])?;
-        let index = git::git_path(root, "todoer-branch-index")?;
-        let result = (|| {
-            git::check_with_index(root, &["read-tree", &old], &index)?;
-            git::check_with_index(
-                root,
-                &[
-                    "rm",
-                    "--cached",
-                    "-r",
-                    "-q",
-                    "-f",
-                    "--ignore-unmatch",
-                    "--",
-                    folder,
-                ],
-                &index,
-            )?;
-            for (path, text) in files {
-                let blob = git::run_input(root, &["hash-object", "-w", "--stdin"], Some(text))?;
-                if !blob.ok {
-                    return Err(format!("git hash-object failed: {}", blob.message()));
-                }
-                let entry = format!("100644,{},{path}", blob.stdout.trim());
-                git::check_with_index(
-                    root,
-                    &["update-index", "--add", "--cacheinfo", &entry],
-                    &index,
-                )?;
+        let start = Instant::now();
+        loop {
+            let output = git::run(&self.root, &add)?;
+            if output.ok {
+                return Ok(());
             }
-            let tree = git::check_with_index(root, &["write-tree"], &index)?.stdout;
-            let commit = git::run_input(
-                root,
-                &["commit-tree", tree.trim(), "-p", &old, "-F", "-"],
-                Some(message),
-            )?;
-            if !commit.ok {
-                return Err(format!("git commit-tree failed: {}", commit.message()));
+            if output.stderr.contains("index.lock") && start.elapsed() < Duration::from_secs(10) {
+                std::thread::sleep(Duration::from_millis(100));
+                continue;
             }
-            git::check(
-                root,
-                &["update-ref", &reference, commit.stdout.trim(), &old],
-            )?;
-            Ok(())
-        })();
-        let _ = std::fs::remove_file(&index);
-        result
+            return Err(format!("git add failed: {}", output.message()));
+        }
     }
 }
 
 fn is_inside(path: &str, own: &str) -> bool {
     let own = own.trim_end_matches('/');
     path == own || path.starts_with(&format!("{own}/"))
-}
-
-fn retry_on_index_lock(
-    mut action: impl FnMut() -> Result<git::Output, String>,
-) -> Result<(), String> {
-    let start = Instant::now();
-    loop {
-        let output = action()?;
-        if output.ok {
-            return Ok(());
-        }
-        if output.stderr.contains("index.lock") && start.elapsed() < Duration::from_secs(10) {
-            std::thread::sleep(Duration::from_millis(100));
-            continue;
-        }
-        return Err(format!("git commit failed: {}", output.message()));
-    }
 }
 
 pub fn relative_to(toplevel: &Path, cwd: &Path, argument: &str) -> Result<String, String> {
@@ -317,6 +230,7 @@ mod tests {
     #[test]
     fn finds_the_paths_inside_a_folder() {
         assert!(is_inside(".todoer/prs/a/pr.md", ".todoer/prs/a"));
+        assert!(is_inside(".todoer", ".todoer"));
         assert!(is_inside(".todoer/prs/a", ".todoer/prs/a/"));
         assert!(!is_inside(".todoer/prs/ab/pr.md", ".todoer/prs/a"));
     }

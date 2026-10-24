@@ -1,8 +1,7 @@
-$ todoer pr submit --branch main -n use-three-for-b --todo fix-the-sum [cwd: fix-sum]
-submitted use-three-for-b: 1 commit, 3 files, into main
-.todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
+$ todoer pr submit --branch fix-sum -n use-three-for-b
+submitted use-three-for-b: 1 commit, 4 files, from fix-sum into main
 todos: fix-the-sum
-committed on main
+the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: submit use-three-for-b" -- .todoer/prs/use-three-for-b
 
 $ todoer pr apply nope
 exit code: 1
@@ -16,9 +15,11 @@ error: tweak has changes that are not committed: docs/guide.md - commit them fir
 
 $ todoer pr apply use-three-for-b
 applied use-three-for-b to the working tree of tweak - not committed
-to update the pull request, commit your changes, then run: todoer pr submit --branch <the branch that the pull request goes into> -n use-three-for-b --update -m "<what you changed>"
+done: fix-the-sum
+to update the pull request, commit your changes, then run in the checkout of the branch that the pull request goes into: todoer pr submit --branch tweak -n use-three-for-b --update -m "<what you changed>"
 
 $ git status --short && cat src/app.rs
+D  .todoer/todos/fix-the-sum.md
 M  docs/guide.md
 M  src/app.rs
 R  src/old.rs -> src/lib.rs
@@ -31,33 +32,82 @@ fn main() {
 $ todoer pr apply use-three-for-b
 exit code: 1
 --- stderr
-error: tweak has changes that are not committed: docs/guide.md, src/app.rs, src/lib.rs - commit them first
+error: tweak has changes that are not committed: .todoer/todos/fix-the-sum.md, docs/guide.md, src/app.rs, src/lib.rs - commit them first
 
-$ todoer pr submit --branch main --update -m 'Four.'
+$ todoer pr submit --branch tweak --update -m 'Four.'
 exit code: 1
 --- stderr
 error: a submit needs the name of the pull request - use -n <name> for a new pull request, or -n <pr> --update to replace an open one. The open pull requests on main: use-three-for-b
 
-$ todoer pr submit --branch main -n use-three-for-b --update -m 'Four.'
-updated use-three-for-b: 2 commits squashed to 1, 3 files, into main
-.todoer/prs/use-three-for-b on main
+$ todoer pr submit --branch tweak -n use-three-for-b --update -m 'Four.'
+updated use-three-for-b: 2 commits squashed to 1, 4 files, from tweak into main
 todos: fix-the-sum
-kept the todos of the old pull request - give --todo to replace them
-committed on main
+the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: update use-three-for-b" -- .todoer/prs/use-three-for-b
 
-$ git log --format=%s -2 main && git show main:.todoer/prs/use-three-for-b/pr.md
-todoer: update use-three-for-b
-todoer: submit use-three-for-b
+$ git status --short && cat .todoer/prs/use-three-for-b/pr.md
+ M .todoer/prs/use-three-for-b/pr.diff
+ M .todoer/prs/use-three-for-b/pr.md
+ M .todoer/prs/use-three-for-b/pr.patch
 ---
 author: me@example.com
-base: dce2065d289cc7d20e8c82b8a0aa09561c21c925
-todos: [fix-the-sum]
+base: 67f6c998e752b3f436bf00934b70ae4fc6915598
 ---
 
 Four.
 
-$ git show main:.todoer/prs/use-three-for-b/pr.patch | grep -E '^(Subject|[-+] )'
+$ grep -E '^(Subject|[-+] )' .todoer/prs/use-three-for-b/pr.patch
 Subject: [PATCH] todoer: merge use-three-for-b
 -    let b = 2;
++    let b = 4;
+
+$ todoer pr apply use-three-for-b --merge
+exit code: 1
+--- stderr
+error: the patch does not apply on main - nothing changed. To update the pull request, make a new branch from main, run todoer pr apply use-three-for-b there, resolve the conflicts and commit, then run todoer pr submit --branch <the new branch> -n use-three-for-b --update on main:
+Applied patch to 'src/app.rs' with conflicts.
+
+$ todoer pr apply use-three-for-b --merge [cwd: shallow]
+exit code: 1
+--- stderr
+error: the patch does not apply on main - nothing changed. A three-way merge needs the base commit 67f6c998e752b3f436bf00934b70ae4fc6915598 of use-three-for-b, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run todoer pr apply use-three-for-b --merge again
+
+$ git switch -q -c tweak && todoer pr apply use-three-for-b [cwd: shallow]
+exit code: 1
+--- stderr
+error: the patch does not apply on tweak - nothing changed. A three-way merge needs the base commit 67f6c998e752b3f436bf00934b70ae4fc6915598 of use-three-for-b, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run todoer pr apply use-three-for-b again
+
+$ todoer pr apply use-three-for-b
+applied use-three-for-b to the working tree of tweak-2 with conflicts in: src/app.rs - not committed
+resolve the conflicts, then run: git add -- src/app.rs
+done: fix-the-sum
+to update the pull request, commit your changes, then run in the checkout of the branch that the pull request goes into: todoer pr submit --branch tweak-2 -n use-three-for-b --update -m "<what you changed>"
+
+$ git status --short && cat src/app.rs
+D  .todoer/todos/fix-the-sum.md
+M  docs/guide.md
+UU src/app.rs
+R  src/old.rs -> src/lib.rs
+fn main() {
+    let a = 1;
+<<<<<<< ours
+    let b = 5;
+=======
+    let b = 4;
+>>>>>>> theirs
+    println!("{}", a + b);
+}
+
+$ todoer pr submit --branch tweak-2 -n use-three-for-b --update
+updated use-three-for-b: 1 commit, 4 files, from tweak-2 into main
+todos: fix-the-sum
+kept the description of the old pull request - give -m to replace it
+the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: update use-three-for-b" -- .todoer/prs/use-three-for-b
+
+$ git rev-parse HEAD && grep base .todoer/prs/use-three-for-b/pr.md
+1cc232a0161bf1df55e9c0da2894a6068ab24a04
+base: 1cc232a0161bf1df55e9c0da2894a6068ab24a04
+
+$ grep -E '^[-+] ' .todoer/prs/use-three-for-b/pr.patch
+-    let b = 5;
 +    let b = 4;
 

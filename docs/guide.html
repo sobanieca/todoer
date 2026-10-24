@@ -13,7 +13,7 @@
     </script>
     <title>todoer guide</title>
     <meta name="description"
-      content="How to use todoer: add todos, let an agent claim and implement them in a worktree, submit a pull request into your branch, review it, update it and merge it.">
+      content="How to use todoer: add todos, let an agent implement them in a worktree, submit a pull request into your branch, review it, update it and merge it.">
     <link rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -594,7 +594,7 @@
       <div class="head">
         <span class="kicker">// guide</span>
         <h1>Work with todoer <em>and your agents.</em></h1>
-        <p class="lead">This guide shows the workflow from a new todo to a merge. For each step, it shows what you tell your agent, the command that runs, and the commit that it makes.</p>
+        <p class="lead">This guide shows the workflow from a new todo to a merge. For each step, it shows what you tell your agent, the command that runs, and what you commit.</p>
       </div>
 
       <div class="layout">
@@ -606,12 +606,11 @@
             <li><a href="#workflow">The workflow</a>
               <ol>
                 <li><a href="#add">1. Add todos</a></li>
-                <li><a href="#claim">2. Claim</a></li>
-                <li><a href="#implement">3. Implement</a></li>
-                <li><a href="#submit">4. Submit</a></li>
-                <li><a href="#review">5. Review</a></li>
-                <li><a href="#update">6. Update</a></li>
-                <li><a href="#merge">7. Merge</a></li>
+                <li><a href="#implement">2. Implement</a></li>
+                <li><a href="#submit">3. Submit</a></li>
+                <li><a href="#review">4. Review</a></li>
+                <li><a href="#update">5. Update</a></li>
+                <li><a href="#merge">6. Merge</a></li>
               </ol>
             </li>
             <li><a href="#cases">Other cases</a></li>
@@ -637,11 +636,12 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span></pre>
           <section id="ideas">
             <h2>The ideas</h2>
             <ul>
-              <li>A todo is a file <code>.todoer/todos/&lt;name&gt;.md</code>. The name is its id and its title. A todo with an <code>assignee</code> is in progress.</li>
+              <li>A todo is a file <code>.todoer/todos/&lt;name&gt;.md</code>. The name is its id and its title. The file is plain markdown. A todo has no assignee and no state.</li>
               <li>A pull request is a folder <code>.todoer/prs/&lt;name&gt;/</code> with a patch, a diff and a review. It is on the branch that it goes into, so you review and merge it on your branch.</li>
+              <li>The patch carries all the work, also the changes in <code>.todoer/</code>. The todos that the patch removes are the todos of the pull request.</li>
               <li>todoer knows no main branch. It works on the branch that is checked out. Your branch can be <code>main</code> or a feature branch.</li>
-              <li><code>claim</code>, <code>unclaim</code> and the pull request commands commit only their own files. The other todo commands change files and do not commit.</li>
-              <li>When your checkout has other changes that are not committed, todoer does not commit. It writes the files and tells you. Then commit them yourself. <code>--no-commit</code> does the same on request.</li>
+              <li>todoer never commits. It changes the files in your working tree, and you decide when to commit them.</li>
+              <li>A pull request lands in the working tree of the branch that it goes into. You check out that branch and run <code>pr submit --branch &lt;the branch of the work&gt;</code> there.</li>
               <li>todoer never pushes. Push when you want other people to see the change.</li>
             </ul>
           </section>
@@ -652,81 +652,63 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span></pre>
 
             <article class="step" id="add">
               <div class="step-head"><span class="n">1</span><h3>Add todos</h3><span class="tag">you</span></div>
-              <p>Add a todo with a name, labels and the text. The text can also come on stdin.</p>
-<pre class="shell"><span class="p">$ </span>todoer add fix-the-login-crash -l auth "Steps to reproduce: sign in with an expired token."
+              <p>Add a todo with a name and the text. The text can also come on stdin.</p>
+<pre class="shell"><span class="p">$ </span>todoer add fix-the-login-crash "Steps to reproduce: sign in with an expired token."
 <span class="c">.todoer/todos/fix-the-login-crash.md</span>
-<span class="p">$ </span>todoer add add-rate-limiting -l auth -d fix-the-login-crash
+<span class="p">$ </span>todoer add add-rate-limiting "Do this after fix-the-login-crash."
 <span class="p">$ </span>todoer show add-rate-limiting
-<span class="c">add-rate-limiting  (blocked)
-  file:        .todoer/todos/add-rate-limiting.md
-  assignee:    none
-  labels:      auth
-  depends on:  fix-the-login-crash
-  waits for:   fix-the-login-crash
-  needed by:   none
-  pr:          none</span></pre>
-              <p class="result"><b>No commit.</b> Commit the todos yourself, or let the claim in the next step commit the new todo file.</p>
-            </article>
+<span class="c">add-rate-limiting
+  file:  .todoer/todos/add-rate-limiting.md
+  pr:    none
 
-            <article class="step" id="claim">
-              <div class="step-head"><span class="n">2</span><h3>Claim</h3><span class="tag">agent</span></div>
-              <div class="say"><span class="who">you</span><q>Claim fix-the-login-crash.</q></div>
-              <p>The agent runs <code>todoer claim</code>. It sets you as the assignee: the agent runs git with your email. You can also ask for a list of todos, or for all the todos of a label.</p>
-<pre class="shell"><span class="p">$ </span>todoer claim fix-the-login-crash
-<span class="c">claimed fix-the-login-crash for you@example.com</span>
-<span class="p">$ </span>todoer claim --label auth
-<span class="p">$ </span>todoer claim fix-the-login-crash add-rate-limiting</pre>
-              <p class="result"><b>Commit on main:</b> <code>todoer: claim fix-the-login-crash</code>. Push it, so that other people see the claim.</p>
-              <ul>
-                <li>A claim stops for a todo of another person, and for a todo that waits for a todo that you do not claim. Claim the todos together, or use <code>--force</code>.</li>
-                <li><code>--label</code> skips the todos of other people.</li>
-                <li>When your checkout has other changes that are not committed, the claim writes the files but does not commit. Commit them yourself. <code>--no-commit</code> does the same.</li>
-                <li><code>todoer unclaim &lt;name&gt;</code> removes the assignee, and commits too.</li>
-              </ul>
+Do this after fix-the-login-crash.</span></pre>
+              <p class="result"><b>No commit.</b> Commit the todos yourself.</p>
             </article>
 
             <article class="step" id="implement">
-              <div class="step-head"><span class="n">3</span><h3>Implement in a worktree</h3><span class="tag">agent</span></div>
-              <div class="say"><span class="who">you</span><q>Implement it in a worktree.</q></div>
-              <p>The agent makes a new branch from your branch in a git worktree, or uses the worktree of its tool. Your checkout does not change. The agent implements the todos in dependency order, runs the checks of the project and commits.</p>
+              <div class="step-head"><span class="n">2</span><h3>Implement in a worktree</h3><span class="tag">agent</span></div>
+              <div class="say"><span class="who">you</span><q>Implement fix-the-login-crash in a worktree.</q></div>
+              <p>The agent makes a new branch from your branch in a git worktree, or uses the worktree of its tool. Your checkout does not change. The agent implements the todos and runs the checks of the project. Then it runs <code>todoer done</code> in the worktree and commits the work with the removed todo file.</p>
 <pre class="shell"><span class="p">$ </span>git worktree add -b fix-login ../my-project-fix-login main
-<span class="c"># the agent writes the code and commits on fix-login</span></pre>
-              <p>You can give one todo, a list of todos or a label in one request. One pull request can do many todos.</p>
+<span class="c"># the agent writes the code</span>
+<span class="p">$ </span>todoer done fix-the-login-crash
+<span class="c">done: fix-the-login-crash</span>
+<span class="p">$ </span>git add -A &amp;&amp; git commit -m "Fix the login crash"</pre>
+              <p>You can give one todo or a list of todos in one request. One pull request can do many todos. A new todo that the agent adds in the worktree also goes into the pull request.</p>
             </article>
 
             <article class="step" id="submit">
-              <div class="step-head"><span class="n">4</span><h3>Submit into your branch</h3><span class="tag">agent</span></div>
+              <div class="step-head"><span class="n">3</span><h3>Submit into your branch</h3><span class="tag">agent</span></div>
               <div class="say"><span class="who">you</span><q>Submit a pull request into main.</q></div>
-              <p>The agent runs one command in its worktree. <code>--branch</code> names the branch that the pull request goes into.</p>
-<pre class="shell"><span class="p">$ </span>todoer pr submit --branch main -n fix-the-login-crash -m "Use the retry constant." --todo fix-the-login-crash
-<span class="c"><span class="ok">submitted</span> fix-the-login-crash: 1 commit, 2 files, into main
-.todoer/prs/fix-the-login-crash on main, in the checkout ~/code/my-project
+              <p>The agent runs one command in your checkout, on <code>main</code>. <code>--branch</code> names the branch of the work.</p>
+<pre class="shell"><span class="p">$ </span>cd ~/code/my-project
+<span class="p">$ </span>todoer pr submit --branch fix-login -n fix-the-login-crash -m "Use the retry constant."
+<span class="c"><span class="ok">submitted</span> fix-the-login-crash: 1 commit, 3 files, from fix-login into main
 todos: fix-the-login-crash
-committed on main</span></pre>
-              <p class="result"><b>Commit on main:</b> <code>todoer: submit fix-the-login-crash</code>. The pull request is now on your branch. It does not need the branch of the agent: you can remove that worktree and branch.</p>
+the pull request is not committed - to share it, run: git add -A .todoer/prs/fix-the-login-crash &amp;&amp; git commit -m "todoer: submit fix-the-login-crash" -- .todoer/prs/fix-the-login-crash</span></pre>
+              <p class="result"><b>No commit.</b> The pull request is in the working tree of <code>main</code>. Commit it with the command that todoer printed. It does not need the branch of the agent: you can remove that worktree and branch.</p>
               <ul>
-                <li>The patch has every commit since the work started from <code>--branch</code>: the commits after the merge base. Commits that change only <code>.todoer/</code> do not count.</li>
+                <li>The patch has every commit since <code>--branch</code> started from your branch: the commits after the merge base. The patch also holds the changes in <code>.todoer/</code>, except the folder of the pull request itself.</li>
                 <li>todoer squashes these commits into one commit in <code>pr.patch</code>. The author is you. The message is <code>todoer: merge fix-the-login-crash</code>.</li>
-                <li>The submit stops when the worktree has changes that are not committed.</li>
+                <li>The submit stops when the worktree of <code>--branch</code> has changes that are not committed.</li>
                 <li><code>-n</code> gives the name. It is necessary: todoer does not make a name.</li>
-                <li><code>--todo</code> names each todo of the pull request. The merge removes them.</li>
-                <li>When <code>--branch</code> is checked out, todoer writes the folder in that checkout and commits there. When that checkout has other changes, it does not commit, and you commit the folder yourself.</li>
-                <li>When <code>--branch</code> is not checked out, todoer commits the folder on it directly. See <a href="#other-branch">a pull request into another branch</a>.</li>
+                <li>The todos of the pull request are the todos that the patch removes. The submit prints them.</li>
+                <li>The submit goes into the branch that is checked out. See <a href="#other-branch">a pull request into another branch</a>.</li>
               </ul>
             </article>
 
             <article class="step" id="review">
-              <div class="step-head"><span class="n">5</span><h3>Review</h3><span class="tag">you + agent</span></div>
+              <div class="step-head"><span class="n">4</span><h3>Review</h3><span class="tag">you + agent</span></div>
               <div class="say"><span class="who">you</span><q>Explain the pull request fix-the-login-crash.</q></div>
               <p>Review in your checkout, where the pull request is. Talk with an agent about the change. Tell it which comments to add.</p>
               <div class="say"><span class="who">you</span><q>On line 2 of src/auth.rs, ask for a test of the retry path.</q></div>
 <pre class="shell"><span class="p">$ </span>todoer pr ls
 <span class="c">fix-the-login-crash  no comments  fix-login  you@example.com</span>
-<span class="p">$ </span>todoer pr summary fix-the-login-crash
-<span class="p">$ </span>todoer pr details fix-the-login-crash src/auth.rs
+<span class="p">$ </span>todoer pr show fix-the-login-crash --summary
+<span class="p">$ </span>todoer pr show fix-the-login-crash src/auth.rs
 <span class="p">$ </span>todoer pr comment fix-the-login-crash src/auth.rs:2 "Add a test for the retry path."
 <span class="c">added the comment c1 on src/auth.rs:2 in fix-the-login-crash</span></pre>
-              <p>A comment can target a line (<code>src/auth.rs:2</code>), lines (<code>src/auth.rs:1-3</code>), a removed line (<code>src/auth.rs:old:2</code>), a file, a folder (<code>src/</code>) or the whole pull request (no target). You can also read the review alone with <code>todoer pr review &lt;pr&gt;</code>.</p>
+              <p>A comment can target a line (<code>src/auth.rs:2</code>), lines (<code>src/auth.rs:1-3</code>), a removed line (<code>src/auth.rs:old:2</code>), a file, a folder (<code>src/</code>) or the whole pull request (no target). You can also read the review alone with <code>todoer pr show &lt;pr&gt;</code>. It prints the summary and the diff of all the files, with the comments.</p>
               <p><code>pr comment</code> writes <code>review.md</code> and does not commit it. When the review is done, commit it, or ask the agent to:</p>
 <pre class="shell"><span class="p">$ </span>git add .todoer/prs/fix-the-login-crash/review.md
 <span class="p">$ </span>git commit -m "Review fix-the-login-crash" -- .todoer/prs/fix-the-login-crash/review.md</pre>
@@ -734,42 +716,49 @@ committed on main</span></pre>
             </article>
 
             <article class="step" id="update">
-              <div class="step-head"><span class="n">6</span><h3>Update</h3><span class="tag">agent</span></div>
+              <div class="step-head"><span class="n">5</span><h3>Update</h3><span class="tag">agent</span></div>
               <div class="say"><span class="who">you</span><q>Do the review of fix-the-login-crash and update the pull request.</q></div>
-              <p>This can be a new agent. It reads the review in your checkout. Then it makes a new worktree and a new branch with its own tool, at the commit <code>base</code> of <code>pr.md</code>, and restores the commit of the pull request with <code>git am</code>. The branch of the first work is not necessary. It does the comments, commits and updates the pull request:</p>
-<pre class="shell"><span class="p">$ </span>todoer pr review fix-the-login-crash
-<span class="p">$ </span>git worktree add -b fix-login-2 ../my-project-fix-login-2 &lt;base&gt;
+              <p>This can be a new agent. It reads the review in your checkout. Then it makes a new worktree and a new branch from <code>main</code> with its own tool, and applies the pull request with <code>pr apply</code>. The branch of the first work is not necessary. It does the comments and commits. Then it updates the pull request from your checkout:</p>
+<pre class="shell"><span class="p">$ </span>todoer pr show fix-the-login-crash
+<span class="p">$ </span>git worktree add -b fix-login-2 ../my-project-fix-login-2 main
 <span class="p">$ </span>cd ../my-project-fix-login-2
-<span class="p">$ </span>git am ~/code/my-project/.todoer/prs/fix-the-login-crash/pr.patch
+<span class="p">$ </span>todoer pr apply fix-the-login-crash
+<span class="c">applied fix-the-login-crash to the working tree of fix-login-2 - not committed
+done: fix-the-login-crash</span>
 <span class="c"># the agent does the comments and commits</span>
-<span class="p">$ </span>todoer pr submit --branch main -n fix-the-login-crash --update -m "Use the retry constant. Add a test."
-<span class="c"><span class="ok">updated</span> fix-the-login-crash: 2 commits squashed to 1, 2 files, into main
+<span class="p">$ </span>cd ~/code/my-project
+<span class="p">$ </span>todoer pr submit --branch fix-login-2 -n fix-the-login-crash --update -m "Use the retry constant. Add a test."
+<span class="c"><span class="ok">updated</span> fix-the-login-crash: 2 commits squashed to 1, 3 files, from fix-login-2 into main
 todos: fix-the-login-crash
-kept the todos of the old pull request - give --todo to replace them
 removed the review (1 comment) - git history keeps it
-committed on main</span></pre>
-              <p class="result"><b>Commit on main:</b> <code>todoer: update fix-the-login-crash</code>. The patch is new and the review is empty. Review again from step 5, or merge.</p>
+the pull request is not committed - to share it, run: git add -A .todoer/prs/fix-the-login-crash &amp;&amp; git commit -m "todoer: update fix-the-login-crash" -- .todoer/prs/fix-the-login-crash</span></pre>
+              <p class="result"><b>No commit.</b> The patch is new and the review is empty. Commit the update, then review again from step 4, or merge.</p>
               <ul>
                 <li>Without <code>--update</code>, a submit does not change an open pull request. It stops and names <code>-n &lt;pr&gt; --update</code>.</li>
-                <li><code>--update</code> writes the whole pull request again, as for a new one. <code>-m</code> replaces the description and <code>--todo</code> replaces the todos. Without them, the update copies the old ones and prints what it copied.</li>
+                <li><code>--update</code> writes the whole pull request again, as for a new one. <code>-m</code> replaces the description. Without <code>-m</code>, the update copies the old description and says so.</li>
                 <li><code>-n &lt;pr&gt; --update</code> finds the pull request by its name, so the branch of the update can have any name.</li>
-                <li>The patch always applies on <code>base</code>. Do not apply it on the latest <code>main</code>: it can conflict.</li>
-                <li>If the agent tool starts the worktree at another commit, the agent runs <code>git reset --hard &lt;base&gt;</code> in it first. Files that the tool copies into the worktree, and that git does not track, stay.</li>
+                <li>The pull request and the review must be committed on <code>main</code>, so that the new worktree has them.</li>
+                <li>When <code>main</code> moved after the <code>base</code> of the pull request, <code>pr apply</code> can write conflict markers. The agent resolves them, runs <code>git add</code> and commits.</li>
+                <li>The new <code>base</code> is the commit where the new branch starts. Thus the update moves the pull request forward on <code>main</code>.</li>
               </ul>
             </article>
 
             <article class="step" id="merge">
-              <div class="step-head"><span class="n">7</span><h3>Merge</h3><span class="tag">you</span></div>
-              <p>On your branch, merge the pull request. A merge is the approval.</p>
-<pre class="shell"><span class="p">$ </span>todoer pr merge fix-the-login-crash
+              <div class="step-head"><span class="n">6</span><h3>Merge</h3><span class="tag">you</span></div>
+              <p>On your branch, merge the pull request with <code>pr apply --merge</code>. A merge is the approval, and it closes the pull request.</p>
+<pre class="shell"><span class="p">$ </span>todoer pr apply fix-the-login-crash --merge
 <span class="c"><span class="ok">merged</span> fix-the-login-crash into main
-done: fix-the-login-crash</span></pre>
-              <p class="result"><b>Commit on main:</b> <code>todoer: merge fix-the-login-crash</code>, one commit with the changes of the pull request. It also removes the pull request folder and its todos. git history keeps them.</p>
+done: fix-the-login-crash
+the merge is staged and not committed - to commit it, run: git commit -m "todoer: merge fix-the-login-crash"</span></pre>
+<pre class="shell"><span class="p">$ </span>git commit -m "todoer: merge fix-the-login-crash"</pre>
+              <p class="result"><b>You commit:</b> <code>todoer: merge fix-the-login-crash</code>, one commit with the changes of the pull request. It also removes the pull request folder and its todos. git history keeps them.</p>
               <ul>
-                <li>The merge runs <code>git am --3way</code>. It adds the one squashed commit of the patch. The commits of the work stay only on the branch of the agent.</li>
+                <li>The merge applies the patch with <code>git apply --3way</code>, and stages the changes. The commits of the work stay only on the branch of the agent.</li>
+                <li>The merge removes the todos of the pull request by name. Thus an edit of the todo on your branch does not stop the merge.</li>
                 <li>The merge stops while the review has a comment.</li>
-                <li>When the patch does not apply, nothing changes. Ask the agent to rebase its branch on your branch and to update the pull request.</li>
-                <li><code>--no-commit</code> puts the changes in the working tree and the index.</li>
+                <li>When the patch does not apply, nothing changes. Ask an agent to update the pull request, as in <a href="#update">step 5</a>: <code>pr apply</code> on a new branch from your branch, resolve the conflicts, commit and submit with <code>--update</code>.</li>
+                <li>Stage nothing else before a merge: the commit takes all the staged changes.</li>
+                <li>Without <code>--merge</code>, <code>pr apply</code> is for follow-up work: it puts the changes in the working tree and the pull request stays open. See <a href="#apply">Run or continue a pull request</a>.</li>
                 <li>To drop a pull request, run <code>todoer pr close &lt;pr&gt;</code>. The todos stay.</li>
               </ul>
             </article>
@@ -779,44 +768,32 @@ done: fix-the-login-crash</span></pre>
             <h2>Other cases</h2>
 
             <h3 id="other-branch">A pull request into another branch</h3>
-            <p>You work on <code>feature-x</code>, but the pull request must go into <code>main</code>:</p>
-<pre class="shell"><span class="p">$ </span>todoer pr submit --branch main -n fix-the-login-crash --todo fix-the-login-crash
-<span class="c">.todoer/prs/fix-the-login-crash on main
-committed on main</span></pre>
-            <p>When no checkout has <code>main</code>, todoer commits the folder on <code>main</code> directly. Your working tree does not change. Check out <code>main</code> to review and merge. <code>--no-commit</code> is not possible in this case.</p>
-            <p>Make sure that the work starts from <code>main</code>. The patch has every commit after the merge base with <code>--branch</code>.</p>
+            <p>A pull request always goes into the branch that is checked out. To submit the work of <code>fix-login</code> into <code>feature-x</code>, check out <code>feature-x</code> first:</p>
+<pre class="shell"><span class="p">$ </span>git switch feature-x
+<span class="p">$ </span>todoer pr submit --branch fix-login -n fix-the-login-crash
+<span class="c"><span class="ok">submitted</span> fix-the-login-crash: 1 commit, 3 files, from fix-login into feature-x</span></pre>
+            <p>Make sure that the work starts from <code>feature-x</code>. The patch has every commit of <code>fix-login</code> after the merge base with the current branch.</p>
 
             <h3 id="apply">Run or continue a pull request of another person</h3>
-            <p>You see a pull request on <code>main</code>. To run its code, or to change it, make a new branch from <code>main</code> and apply the patch. It does not commit:</p>
+            <p>You see a pull request on <code>main</code>. To run its code, or to change it, make a new branch from <code>main</code> and apply the patch. Without <code>--merge</code>, <code>apply</code> does not commit, and the pull request stays open:</p>
 <pre class="shell"><span class="p">$ </span>git switch -c try-login-fix
 <span class="p">$ </span>todoer pr apply fix-the-login-crash
 <span class="c">applied fix-the-login-crash to the working tree of try-login-fix - not committed
-to update the pull request, commit your changes, then run: todoer pr submit --branch &lt;the branch that the pull request goes into&gt; -n fix-the-login-crash --update -m "&lt;what you changed&gt;"</span></pre>
-            <p>To update the pull request, commit your changes and run the command that <code>apply</code> printed. Use <code>--branch main</code>: todoer does not guess the branch. <code>-n</code> finds the pull request, so the name of your branch is not important.</p>
-            <p>When the patch does not apply on your branch, nothing changes. Ask the author to update the pull request.</p>
+to update the pull request, commit your changes, then run in the checkout of the branch that the pull request goes into: todoer pr submit --branch try-login-fix -n fix-the-login-crash --update -m "&lt;what you changed&gt;"</span></pre>
+            <p>To update the pull request, commit your changes. Then check out <code>main</code> and run the command that <code>apply</code> printed. <code>-n</code> finds the pull request, so the name of your branch is not important.</p>
+            <p>When <code>main</code> moved after the <code>base</code> of the pull request and a change conflicts, <code>apply</code> writes conflict markers and names the files. Resolve the conflicts, run <code>git add</code> on the files and commit. The update replaces the pull request, and its new <code>base</code> is the commit where your branch starts.</p>
 
-            <h3>Plan with labels and dependencies</h3>
-<pre class="shell"><span class="p">$ </span>todoer dep add add-rate-limiting fix-the-login-crash
-<span class="p">$ </span>todoer add new-login-page -D auth-backend-refactor
-<span class="p">$ </span>todoer ls --available
-<span class="p">$ </span>todoer dep show add-rate-limiting
-<span class="p">$ </span>todoer progress auth
-<span class="c">auth  1 in progress, 0 in a pull request, 1 not started  [=-]</span></pre>
-            <p>A todo waits while a todo of its <code>dependsOn</code> exists. todoer refuses a dependency that makes a cycle.</p>
-            <p>A todo can also wait for a group of todos. <code>-D auth-backend-refactor</code> (or <code>dep add &lt;name&gt; -l &lt;label&gt;</code>) writes <code>dependsOnLabels</code>. The todo waits while another todo has the label, also a todo that gets the label later.</p>
-
-            <h3>Let the agent add the labels</h3>
-            <p>A label rule tells in plain words which todos must have a label. todoer stores the rule in <code>.todoer/labels/&lt;label&gt;.md</code>. It does not read the words.</p>
-<pre class="shell"><span class="p">$ </span>todoer labels rule auth "Add this label to a todo that changes the login or the tokens."
-<span class="c">.todoer/labels/auth.md</span>
-<span class="p">$ </span>todoer labels
-<span class="c">auth  2 todos
-  Add this label to a todo that changes the login or the tokens.</span></pre>
-            <p>When an agent adds a todo, it reads the rules, adds the labels that match, and tells you why. Commit the rules as other files. <code>labels rm</code> and <code>labels mv</code> also remove and rename the rule.</p>
+            <h3 id="feature-todos">A feature branch with its own todos</h3>
+            <p>A feature branch can hold its own todos. Agents work on branches of the feature branch, and their pull requests go into it. Then submit the feature branch into <code>main</code>:</p>
+<pre class="shell"><span class="p">$ </span>git switch main
+<span class="p">$ </span>todoer pr submit --branch feature-x -n feature-x
+<span class="c"><span class="ok">submitted</span> feature-x: 6 commits squashed to 1, 14 files, from feature-x into main
+todos: fix-the-login-crash</span></pre>
+            <p>The patch carries every change of the feature branch in <code>.todoer/</code>: the todos that its merges removed, the todos that it added, and its open pull requests. After the merge, <code>main</code> has the same todos as <code>feature-x</code>. Merge or close the pull requests of <code>feature-x</code> first, unless they must move to <code>main</code>.</p>
 
             <h3>Finish a todo without a pull request</h3>
 <pre class="shell"><span class="p">$ </span>todoer done fix-the-login-crash</pre>
-            <p><code>done</code> removes the file, and removes the name from each <code>dependsOn</code>. When no other todo has a label of a <code>dependsOnLabels</code>, it removes the label from it. It does not commit. To drop a todo, use <code>done</code> too.</p>
+            <p><code>done</code> removes the file. It does not commit. To drop a todo, use <code>done</code> too.</p>
 
             <h3>See which areas a pull request changes</h3>
             <p>Name the areas of the code in <code>.todoer/areas</code>, one per line. The patterns use the gitignore rules. The last pattern that matches a path wins.</p>
@@ -825,7 +802,7 @@ security: /src/api/auth
 tests: /tests
 e2e-tests: /tests/e2e
 unit-tests: *.test.js
-<span class="p">$ </span>todoer pr summary add-rate-limiting
+<span class="p">$ </span>todoer pr show add-rate-limiting --summary
 <span class="c">...
 areas
   security    2 files  +48 -6
@@ -833,18 +810,18 @@ areas
   unit-tests  1 file   +22 -0
   (no area)   1 file   +4 -1</span></pre>
             <p>The summary shows each area that the pull request changes, with the number of files and lines. A pattern with no <code>/</code>, such as <code>*.test.js</code>, matches the file name in each folder. To review only some areas, give their names with <code>-a</code>. To hide some areas, give their names with <code>-x</code>:</p>
-<pre class="shell"><span class="p">$ </span>todoer pr details add-rate-limiting -a security,e2e-tests
-<span class="p">$ </span>todoer pr details add-rate-limiting -x e2e-tests,unit-tests</pre>
-            <p><code>summary</code> and <code>review</code> take <code>-a</code> and <code>-x</code> too.</p>
+<pre class="shell"><span class="p">$ </span>todoer pr show add-rate-limiting -a security,e2e-tests
+<span class="p">$ </span>todoer pr show add-rate-limiting -x e2e-tests,unit-tests</pre>
+            <p><code>pr show --summary</code> takes <code>-a</code> and <code>-x</code> too.</p>
 
             <h3>All your projects</h3>
             <p>Outside a git repository, <code>todoer ls</code> lists the todos of each project in the current folder and in its subfolders, for example in <code>~/code</code>. Above the todos of a project, it shows the path of the project and the branch that is checked out there. todoer does not look into a linked worktree.</p>
 <pre class="shell"><span class="p">$ </span>cd ~/code &amp;&amp; todoer ls
 todoer  main
-  available    fix-login
+  fix-login
 
 work/api  feat/rate-limit
-  in-progress  add-rate-limit  me@example.com</pre>
+  add-rate-limit  pr: rate-limit</pre>
             <p>Only <code>ls</code> reads many projects. To use another command, go to the folder of the project.</p>
           </section>
 
@@ -855,25 +832,17 @@ work/api  feat/rate-limit
               <table>
                 <thead><tr><th>Command</th><th>Does</th></tr></thead>
                 <tbody>
-                  <tr><td><code>todoer add &lt;name&gt; [-l label] [-d name] [-D label] [text]</code></td><td>adds a todo</td></tr>
-                  <tr><td><code>todoer ls [--mine] [--label l] [--available] [--json]</code></td><td>lists the todos</td></tr>
+                  <tr><td><code>todoer add &lt;name&gt; [text]</code></td><td>adds a todo</td></tr>
+                  <tr><td><code>todoer ls [--json]</code></td><td>lists the todos</td></tr>
                   <tr><td><code>todoer show &lt;name&gt; [--json]</code></td><td>prints all the data of a todo</td></tr>
-                  <tr><td><code>todoer claim &lt;name&gt;... [--label l] [--force] [--no-commit]</code></td><td>sets you as the assignee and commits</td></tr>
-                  <tr><td><code>todoer unclaim &lt;name&gt;... [--no-commit]</code></td><td>removes the assignee and commits</td></tr>
                   <tr><td><code>todoer done &lt;name&gt;...</code></td><td>removes the todos</td></tr>
-                  <tr><td><code>todoer mv &lt;old&gt; &lt;new&gt;</code></td><td>renames a todo</td></tr>
-                  <tr><td><code>todoer check</code></td><td>reports bad todos and bad label rules</td></tr>
-                  <tr><td><code>todoer dep add|rm|show</code></td><td>changes or shows the dependencies</td></tr>
-                  <tr><td><code>todoer label add|rm</code>, <code>todoer labels [rm|mv]</code></td><td>changes, lists, removes or renames the labels</td></tr>
-                  <tr><td><code>todoer labels rule &lt;label&gt; [text|--rm]</code></td><td>writes or removes the rule of a label</td></tr>
-                  <tr><td><code>todoer progress [label]</code></td><td>shows the progress of a label</td></tr>
-                  <tr><td><code>todoer pr submit --branch b -n name [-m text] [--todo name]... [--update]</code></td><td>writes the pull request on <code>b</code> and commits it</td></tr>
+                  <tr><td><code>todoer pr submit --branch b -n name [-m text] [--update]</code></td><td>writes the work of <code>b</code> as a pull request into the current branch, no commit</td></tr>
                   <tr><td><code>todoer pr ls [--json]</code></td><td>lists the pull requests</td></tr>
-                  <tr><td><code>todoer pr summary|details|review &lt;pr&gt; [-a area,...] [-x area,...]</code></td><td>shows the change and the comments</td></tr>
+                  <tr><td><code>todoer pr show &lt;pr&gt; [file...] [--summary] [-a area,...] [-x area,...]</code></td><td>shows the change and the comments</td></tr>
                   <tr><td><code>todoer pr comment &lt;pr&gt; [target] [text]</code></td><td>adds a comment to <code>review.md</code></td></tr>
-                  <tr><td><code>todoer pr merge &lt;pr&gt; [--no-commit]</code></td><td>applies the patch as one commit</td></tr>
-                  <tr><td><code>todoer pr apply &lt;pr&gt;</code></td><td>applies the patch to the working tree, no commit</td></tr>
-                  <tr><td><code>todoer pr close &lt;pr&gt; [--no-commit]</code></td><td>removes the pull request</td></tr>
+                  <tr><td><code>todoer pr apply &lt;pr&gt;</code></td><td>applies the patch to the working tree, no commit, for follow-up work</td></tr>
+                  <tr><td><code>todoer pr apply &lt;pr&gt; --merge</code></td><td>merges the patch into the working tree, stages it and closes the pull request</td></tr>
+                  <tr><td><code>todoer pr close &lt;pr&gt;</code></td><td>removes the pull request</td></tr>
                   <tr><td><code>todoer skill [--init]</code></td><td>prints or writes the agent skill, in the repository or in the home folder</td></tr>
                   <tr><td><code>todoer update</code></td><td>installs the latest release</td></tr>
                 </tbody>

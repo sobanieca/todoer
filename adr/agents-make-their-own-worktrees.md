@@ -12,13 +12,16 @@ know.
 **todoer does not make worktrees or branches. An agent makes them with its own tool or with
 `git worktree add`. This is true for new work and for the fix of a review.**
 
-- `todoer pr submit --branch <branch>` runs in any checkout, on any branch that is not `<branch>`.
-- For new work, the worktree starts from the branch of the person, so `--branch` is that branch.
+- `todoer pr submit --branch <work>` runs in the checkout of the branch that the pull request goes
+  into. `<work>` is the branch of the agent. The agent runs the submit in the checkout of the
+  person, not in its worktree.
+- For new work, the worktree starts from the branch of the person.
 - A pull request does not need the branch of the work after the submit. The person can remove the
   branch and its worktree.
-- To fix a review, the agent makes a new worktree and branch at the `base` of `pr.md`, and restores
-  the commit with `git am .todoer/prs/<pr>/pr.patch`. The patch always applies on `base`. Then
-  `pr submit -n <pr> --update` continues the pull request from the new branch.
+- To fix a review, the agent makes a new worktree and branch from the branch of the person, and
+  runs `todoer pr apply <pr>` there. It resolves the conflicts, if any, and commits. Then
+  `pr submit --branch <new branch> -n <pr> --update`, in the checkout of the person, continues the
+  pull request from the new branch.
 - There is no `pr restore` or `pr checkout`. These commands would make a branch or a worktree
   without the preparation of the agent tool. `pr apply` only changes the working tree of the
   current checkout (see
@@ -26,7 +29,6 @@ know.
 
 ## Consequences
 
-- `merge` does not remove the worktree of the author.
-- The skill tells the agent the two git steps of a restore. When the tool starts the worktree at
-  another commit, the agent runs `git reset --hard <base>` first. Files that git does not track
-  stay.
+- A merge does not remove the worktree of the author.
+- The worktree for a fix starts at the same commit as the worktree for new work. The pull request
+  and its review must be committed on the branch of the person, so that the worktree has them.

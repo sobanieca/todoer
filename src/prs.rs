@@ -1,19 +1,18 @@
 //! Pull requests: a folder `.todoer/prs/<name>/` with `pr.md`, the patch, the diff and the review
-//! of the latest submit. A submit writes the folder on the branch that the pull request goes into.
+//! of the latest submit. A submit writes the folder in the working tree of the branch that the pull
+//! request goes into. todoer never commits it. The patch carries every change of the work, also in
+//! `.todoer/`, except the folder of the pull request itself. The todos that a pull request removes
+//! are the todos that it does.
 
 use crate::diff;
 use crate::frontmatter::Document;
 use crate::git;
 use crate::pr_view;
-use crate::project::{CommitPlan, DATA_DIR, Project, read_file, write_file};
+use crate::project::{DATA_DIR, Lock, Project, read_file, write_file};
 use crate::review::{self, Comment, Review, Target, Tree};
-use crate::todos::{
-    Todos, read_todo, remove_dependency_on, remove_label_dependencies_without_todos, remove_todo,
-    slug, todo_path, valid_name,
-};
+use crate::todos::{remove_todo, slug, todo_file, todo_path, valid_name};
 use std::path::{Path, PathBuf};
 
-const EXCLUDE_DATA: [&str; 3] = ["--", ".", ":(exclude).todoer"];
 pub const REVIEW: &str = "review.md";
 pub const PATCH: &str = "pr.patch";
 pub const DIFF: &str = "pr.diff";
@@ -32,27 +31,36 @@ pub fn prs_dir(project: &Project) -> PathBuf {
     project.data_dir().join("prs")
 }
 
+fn pr_dir_path(name: &str) -> String {
+    format!("{DATA_DIR}/prs/{name}")
+}
+
+/// The pathspec of a submit: all files, except the folder of the pull request.
+fn without_pr(name: Option<&str>) -> Vec<String> {
+    let mut pathspec = vec!["--".to_string(), ".".to_string()];
+    if let Some(name) = name {
+        pathspec.push(format!(":(exclude){}", pr_dir_path(name)));
+    }
+    pathspec
+}
+
 impl Pr {
-    fn from_text(dir: &Path, name: &str, text: &str) -> Pr {
-        let doc = Document::parse(text);
-        Pr {
+    fn load(dir: &Path, name: &str) -> Result<Pr, String> {
+        let doc = Document::parse(&read_file(&dir.join("pr.md"))?);
+        let diff_text = std::fs::read_to_string(dir.join(DIFF)).unwrap_or_default();
+        Ok(Pr {
             name: name.to_string(),
             dir: dir.to_path_buf(),
             author: doc.text("author").unwrap_or_default(),
             base: doc.text("base").unwrap_or_default(),
-            todos: doc.list("todos"),
+            todos: removed_todos(&diff::parse(&diff_text)),
             doc,
-        }
-    }
-
-    fn load(dir: &Path, name: &str) -> Result<Pr, String> {
-        Ok(Pr::from_text(dir, name, &read_file(&dir.join("pr.md"))?))
+        })
     }
 
     fn render(&mut self) -> String {
         self.doc.set("author", &self.author);
         self.doc.set("base", &self.base);
-        self.doc.set_list("todos", &self.todos);
         self.doc.render()
     }
 
@@ -61,7 +69,7 @@ impl Pr {
     }
 
     pub fn rel_dir(&self) -> String {
-        format!("{DATA_DIR}/prs/{}", self.name)
+        pr_dir_path(&self.name)
     }
 
     pub fn rel(&self, name: &str) -> String {
@@ -120,6 +128,19 @@ impl Tree for PrTree<'_> {
     }
 }
 
+/// The names of the todo files that the diff removes.
+fn removed_todos(files: &[diff::File]) -> Vec<String> {
+    files
+        .iter()
+        .filter(|file| file.new_path.is_none())
+        .filter_map(|file| file.old_path.as_deref())
+        .filter_map(|path| path.strip_prefix(&format!("{DATA_DIR}/todos/")))
+        .filter_map(|file| file.strip_suffix(".md"))
+        .filter(|name| valid_name(name))
+        .map(str::to_string)
+        .collect()
+}
+
 pub fn list(project: &Project) -> Result<Vec<Pr>, String> {
     let dir = prs_dir(project);
     let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -137,7 +158,7 @@ pub fn list(project: &Project) -> Result<Vec<Pr>, String> {
         .collect()
 }
 
-/// The open pull requests that name the todo in `todos`.
+/// The open pull requests that remove the todo.
 pub fn of_todo<'a>(prs: &'a [Pr], name: &str) -> Vec<&'a Pr> {
     prs.iter()
         .filter(|pr| pr.todos.iter().any(|todo| todo == name))
@@ -179,37 +200,22 @@ pub fn resolve(project: &Project, argument: &str) -> Result<Pr, String> {
     Pr::load(&dir, &name)
 }
 
-pub enum Destination {
-    Checkout(Project),
-    Branch(String),
-}
-
-/// What an update copies from the old pull request, because the submit did not give it.
-#[derive(Default)]
-pub struct Kept {
-    pub description: bool,
-    pub todos: bool,
-}
-
 pub struct Submitted {
     pub pr: Pr,
     pub into: String,
+    pub from: String,
     pub created: bool,
-    pub kept: Kept,
+    pub kept_description: bool,
     pub commits: usize,
     pub files: usize,
     pub cleared: Option<Review>,
-    pub destination: Destination,
-    pub plan: CommitPlan,
 }
 
 pub struct SubmitOptions<'a> {
     pub branch: Option<&'a str>,
     pub name: Option<&'a str>,
     pub message: Option<&'a str>,
-    pub todos: &'a [String],
     pub update: bool,
-    pub no_commit: bool,
 }
 
 fn check_name(name: &str) -> Result<(), String> {
@@ -226,7 +232,7 @@ fn check_name(name: &str) -> Result<(), String> {
     }
 }
 
-/// The message of the commit that `pr merge` puts on the branch.
+/// The message of the squash in `pr.patch`, and the message that `pr apply --merge` proposes.
 fn merge_message(name: &str) -> String {
     format!("todoer: merge {name}")
 }
@@ -239,65 +245,8 @@ fn open_names(into: &str, names: &[String]) -> String {
     }
 }
 
-impl Destination {
-    fn find(project: &Project, branch: &str) -> Result<Destination, String> {
-        match git::checkout_of_branch(&project.root, branch)? {
-            Some(root) => Ok(Destination::Checkout(Project::find_from(&root)?)),
-            None => Ok(Destination::Branch(branch.to_string())),
-        }
-    }
-
-    pub fn checkout(&self) -> Option<&Path> {
-        match self {
-            Destination::Checkout(project) => Some(&project.root),
-            Destination::Branch(_) => None,
-        }
-    }
-
-    fn prs_dir(&self, project: &Project) -> PathBuf {
-        match self {
-            Destination::Checkout(target) => prs_dir(target),
-            Destination::Branch(_) => prs_dir(project),
-        }
-    }
-
-    fn open_prs(&self, project: &Project) -> Result<Vec<(Pr, Review)>, String> {
-        let branch = match self {
-            Destination::Checkout(target) => {
-                return Ok(list(target)?
-                    .into_iter()
-                    .map(|pr| {
-                        let review = pr.review();
-                        (pr, review)
-                    })
-                    .collect());
-            }
-            Destination::Branch(branch) => branch,
-        };
-        let root = &project.root;
-        let tree = format!("refs/heads/{branch}");
-        let folders = git::text(
-            root,
-            &["ls-tree", "--name-only", &tree, &format!("{DATA_DIR}/prs/")],
-        )?;
-        let mut open = Vec::new();
-        for folder in folders.lines() {
-            let name = folder.rsplit('/').next().unwrap_or(folder);
-            let Some(text) = git::show(root, &tree, &format!("{folder}/pr.md"))? else {
-                continue;
-            };
-            let review = git::show(root, &tree, &format!("{folder}/{REVIEW}"))?
-                .map(|text| Review::parse(&text))
-                .unwrap_or_else(Review::empty);
-            let pr = Pr::from_text(&prs_dir(project).join(name), name, &text);
-            open.push((pr, review));
-        }
-        Ok(open)
-    }
-}
-
-fn check_clean(project: &Project, branch: &str) -> Result<(), String> {
-    let others = project.plan_commit(false, &[DATA_DIR.to_string()])?.others;
+fn check_clean(project: &Project, pr: &Pr, branch: &str) -> Result<(), String> {
+    let others = project.changes(&pr.rel_dir())?;
     if others.is_empty() {
         return Ok(());
     }
@@ -307,66 +256,77 @@ fn check_clean(project: &Project, branch: &str) -> Result<(), String> {
     ))
 }
 
+fn check_work_committed(project: &Project, from: &str, name: Option<&str>) -> Result<(), String> {
+    let Some(checkout) = git::checkout_of_branch(&project.root, from)? else {
+        return Ok(());
+    };
+    let ignored = name.map(pr_dir_path).unwrap_or_default();
+    let others = Project::find_from(&checkout)?.changes(&ignored)?;
+    if others.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "{from} has changes that are not committed in {}: {} - commit them first",
+        checkout.display(),
+        others.join(", ")
+    ))
+}
+
 pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, String> {
     let root = &project.root;
-    let branch = git::branch(root)?
-        .ok_or("the current checkout has no branch - check out the branch of your work")?;
-    let into = options
+    let into = git::branch(root)?.ok_or(
+        "the current checkout has no branch - check out the branch that the pull request goes into",
+    )?;
+    let from = options
         .branch
-        .filter(|into| !into.trim().is_empty())
-        .ok_or("a submit needs the branch that the pull request goes into - use todoer pr submit --branch <branch>")?
+        .filter(|from| !from.trim().is_empty())
+        .ok_or("a submit needs the branch of the work - check out the branch that the pull request goes into, and run todoer pr submit --branch <the branch of the work>")?
         .to_string();
-    if into == branch {
+    if from == into {
         return Err(format!(
-            "the pull request cannot go into its own branch {branch} - use --branch <the branch that it goes into>"
+            "the pull request cannot come from {into}, the branch that is checked out - check out the branch that it goes into, and run todoer pr submit --branch {into} there"
         ));
     }
-    if !git::local_branch_exists(root, &into)? {
+    if !git::local_branch_exists(root, &from)? {
         return Err(format!(
-            "there is no local branch {into} - check the name in --branch"
+            "there is no local branch {from} - check the name in --branch"
         ));
     }
-    for name in options.todos {
-        read_todo(root, name)?;
-    }
-    check_clean(project, &branch)?;
     if let Some(name) = options.name {
         check_name(name)?;
     }
-    let lock = project.lock()?;
-    let destination = Destination::find(project, &into)?;
-    if options.no_commit && destination.checkout().is_none() {
-        return Err(format!(
-            "{into} is not checked out, so todoer can only commit the pull request on it - check out {into}, or remove --no-commit"
-        ));
-    }
-    let open = destination.open_prs(project)?;
-    let merge_base = git::run(root, &["merge-base", "HEAD", &into])?;
+    check_work_committed(project, &from, options.name)?;
+    let pathspec = without_pr(options.name);
+    let pathspec: Vec<&str> = pathspec.iter().map(String::as_str).collect();
+    let _lock = project.lock()?;
+    let open = list(project)?;
+    let merge_base = git::run(root, &["merge-base", "HEAD", &from])?;
     if !merge_base.ok {
         return Err(format!(
-            "{branch} has no common commit with {into} - check the name in --branch"
+            "{from} has no common commit with {into} - check the name in --branch"
         ));
     }
     let base = merge_base.stdout.trim().to_string();
-    let range = format!("{base}..HEAD");
+    let range = format!("{base}..{from}");
     let mut count = vec!["rev-list", "--count", &range];
-    count.extend(EXCLUDE_DATA);
+    count.extend(&pathspec);
     let commits = git::text(root, &count)?.parse::<usize>().unwrap_or(0);
     if commits == 0 {
         return Err(format!(
-            "there is no commit on {branch} after {into} - commit your work first"
+            "there is no commit on {from} after {into} - commit your work first. Run todoer pr submit in the checkout of the branch that the pull request goes into, with --branch <the branch of the work>"
         ));
     }
-    let names: Vec<String> = open.iter().map(|(pr, _)| pr.name.clone()).collect();
+    let names: Vec<String> = open.iter().map(|pr| pr.name.clone()).collect();
     let name = options.name.ok_or_else(|| {
         format!(
             "a submit needs the name of the pull request - use -n <name> for a new pull request, or -n <pr> --update to replace an open one. {}",
             open_names(&into, &names)
         )
     })?;
+    let tree = format!("{from}^{{tree}}");
     let squashed = git::check_input(
         root,
-        &["commit-tree", "HEAD^{tree}", "-p", &base, "-F", "-"],
+        &["commit-tree", &tree, "-p", &base, "-F", "-"],
         &format!("{}\n", merge_message(name)),
     )?
     .stdout
@@ -379,19 +339,20 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
         "-1",
         &squashed,
     ];
-    format_patch.extend(EXCLUDE_DATA);
+    format_patch.extend(&pathspec);
     let patch = git::check(root, &format_patch)?.stdout;
-    let mut diff_args = vec!["diff", "-M", &base, "HEAD"];
-    diff_args.extend(EXCLUDE_DATA);
+    let mut diff_args = vec!["diff", "-M", &base, &from];
+    diff_args.extend(&pathspec);
     let diff_text = git::check(root, &diff_args)?.stdout;
     if diff_text.trim().is_empty() {
         return Err(format!(
-            "the commits on {branch} change no file outside {DATA_DIR}/"
+            "the commits on {from} change no file outside {}/",
+            pr_dir_path(name)
         ));
     }
-    let existing = open.iter().find(|(pr, _)| pr.name == name);
+    let existing = open.iter().find(|pr| pr.name == name);
     let cleared = match (existing, options.update) {
-        (Some((_, review)), true) => Some(review.clone()),
+        (Some(pr), true) => Some(pr.review()),
         (Some(_), false) => {
             return Err(format!(
                 "{into} already has the pull request {name} - use -n {name} --update to replace it, or another -n to make a new pull request"
@@ -406,12 +367,11 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
         (None, false) => None,
     };
     let created = existing.is_none();
-    let old = existing.map(|(pr, _)| pr);
-    let mut kept = Kept::default();
-    let description = match (options.message, old) {
+    let mut kept_description = false;
+    let description = match (options.message, existing) {
         (Some(message), _) => message.trim().to_string(),
         (None, Some(old)) => {
-            kept.description = !old.description().is_empty();
+            kept_description = !old.description().is_empty();
             old.description().to_string()
         }
         (None, None) => String::new(),
@@ -420,77 +380,32 @@ pub fn submit(project: &Project, options: &SubmitOptions) -> Result<Submitted, S
     if !description.is_empty() {
         doc.body = format!("\n{description}\n");
     }
-    let mut todos: Vec<String> = Vec::new();
-    match old {
-        Some(old) if options.todos.is_empty() => {
-            kept.todos = !old.todos.is_empty();
-            todos = old.todos.clone();
-        }
-        _ => {
-            for name in options.todos {
-                if !todos.contains(name) {
-                    todos.push(name.clone());
-                }
-            }
-        }
-    }
     let mut pr = Pr {
         name: name.to_string(),
-        dir: destination.prs_dir(project).join(name),
+        dir: prs_dir(project).join(name),
         author: git::user_email(root)?,
         base,
-        todos,
+        todos: removed_todos(&diff::parse(&diff_text)),
         doc,
     };
     let pr_md = pr.render();
-    let action = if created { "submit" } else { "update" };
-    let commit_message = format!("todoer: {action} {}", pr.name);
-    let plan = match &destination {
-        Destination::Checkout(target) => {
-            let own = [pr.rel_dir()];
-            let plan = target.plan_commit(options.no_commit, &own)?;
-            write_file(&pr.dir.join(PATCH), &patch)?;
-            write_file(&pr.dir.join(DIFF), &diff_text)?;
-            write_file(&pr.dir.join("pr.md"), &pr_md)?;
-            if pr.dir.join(REVIEW).exists() {
-                std::fs::remove_file(pr.dir.join(REVIEW))
-                    .map_err(|error| format!("cannot remove {}: {error}", pr.rel(REVIEW)))?;
-            }
-            if plan.commit {
-                let committed = target.commit(&lock, &commit_message, &own);
-                if let Err(error) = committed {
-                    if created {
-                        let _ = std::fs::remove_dir_all(&pr.dir);
-                    }
-                    return Err(error);
-                }
-            }
-            plan
-        }
-        Destination::Branch(into) => {
-            let files = [
-                (pr.rel("pr.md"), pr_md),
-                (pr.rel(PATCH), patch),
-                (pr.rel(DIFF), diff_text.clone()),
-            ];
-            project.commit_to_branch(&lock, into, &commit_message, &pr.rel_dir(), &files)?;
-            CommitPlan {
-                commit: true,
-                others: Vec::new(),
-            }
-        }
-    };
+    write_file(&pr.dir.join(PATCH), &patch)?;
+    write_file(&pr.dir.join(DIFF), &diff_text)?;
+    write_file(&pr.dir.join("pr.md"), &pr_md)?;
+    if pr.dir.join(REVIEW).exists() {
+        std::fs::remove_file(pr.dir.join(REVIEW))
+            .map_err(|error| format!("cannot remove {}: {error}", pr.rel(REVIEW)))?;
+    }
     let files = diff::parse(&diff_text).len();
     Ok(Submitted {
         pr,
         into,
+        from,
         created,
-        kept,
+        kept_description,
         commits,
         files,
         cleared,
-        destination,
-        plan,
     })
 }
 
@@ -516,9 +431,7 @@ fn apply_message(output: &git::Output) -> String {
 pub struct Merged {
     pub applied: bool,
     pub done: Vec<String>,
-    pub changed: Vec<String>,
-    pub removed_labels: Vec<(String, String)>,
-    pub plan: CommitPlan,
+    pub message: String,
 }
 
 fn check_no_comments(project: &Project, pr: &Pr) -> Result<(), String> {
@@ -528,24 +441,78 @@ fn check_no_comments(project: &Project, pr: &Pr) -> Result<(), String> {
     }
     let ids: Vec<&str> = comments.iter().map(|comment| comment.id.as_str()).collect();
     Err(format!(
-        "{} has the unresolved comments {} - the author must do what they ask, then run todoer pr submit --branch {} -n {} --update",
+        "{} has the unresolved comments {} - the author must do what they ask, then run todoer pr submit --branch <the branch of the work> -n {} --update on {}",
         pr.name,
         ids.join(", "),
-        project.branch_name()?,
-        pr.name
+        pr.name,
+        project.branch_name()?
     ))
 }
 
-fn does_not_apply(project: &Project, pr: &Pr, output: &git::Output) -> Result<String, String> {
+fn lacks_base(project: &Project, pr: &Pr, command: &str) -> Result<Option<String>, String> {
+    let base = format!("{}^{{commit}}", pr.base);
+    if git::run(&project.root, &["cat-file", "-e", &base])?.ok {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "the patch does not apply on {} - nothing changed. A three-way merge needs the base commit {} of {}, and this repository does not have it, for example in a shallow clone. Get the history with git fetch --unshallow, then run {command} again",
+        project.branch_name()?,
+        pr.base,
+        pr.name,
+    )))
+}
+
+fn does_not_merge(project: &Project, pr: &Pr, output: &git::Output) -> Result<String, String> {
+    if let Some(message) = lacks_base(project, pr, &format!("todoer pr apply {} --merge", pr.name))?
+    {
+        return Ok(message);
+    }
     let branch = project.branch_name()?;
     Ok(format!(
-        "the patch does not apply on {branch} - nothing changed. Ask the author to rebase the branch on {branch} and run todoer pr submit --branch {branch} -n {} --update:\n{}",
-        pr.name,
-        apply_message(output)
+        "the patch does not apply on {branch} - nothing changed. To update the pull request, make a new branch from {branch}, run todoer pr apply {name} there, resolve the conflicts and commit, then run todoer pr submit --branch <the new branch> -n {name} --update on {branch}:\n{}",
+        apply_message(output),
+        name = pr.name,
     ))
 }
 
-fn apply_to_working_tree(project: &Project, pr: &Pr, patch: &str) -> Result<(), String> {
+/// The arguments of `git apply` for the patch of the pull request. The patch removes its todos, but
+/// `git apply` leaves them out: an edit of a todo on the current branch must not stop the patch.
+/// `remove_todos` removes them by name.
+fn apply_args<'a>(pr: &'a Pr, options: &[&'a str]) -> Vec<String> {
+    let mut args: Vec<String> = std::iter::once("apply")
+        .chain(options.iter().copied())
+        .map(str::to_string)
+        .collect();
+    args.extend(
+        pr.todos
+            .iter()
+            .map(|name| format!("--exclude={}", todo_path(name))),
+    );
+    args.push(pr.dir.join(PATCH).to_string_lossy().into_owned());
+    args
+}
+
+fn git_apply(root: &Path, pr: &Pr, options: &[&str]) -> Result<git::Output, String> {
+    let args = apply_args(pr, options);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    git::run(root, &args)
+}
+
+/// Removes the todos of the pull request that the current checkout has, and stages the removal.
+fn remove_todos(project: &Project, lock: &Lock, pr: &Pr) -> Result<Vec<String>, String> {
+    let mut done = Vec::new();
+    for name in &pr.todos {
+        if todo_file(&project.root, name).is_file() {
+            remove_todo(&project.root, name)?;
+            done.push(name.clone());
+        }
+    }
+    let paths: Vec<String> = pr.todos.iter().map(|name| todo_path(name)).collect();
+    project.stage(lock, &paths)?;
+    Ok(done)
+}
+
+fn merge_into_working_tree(project: &Project, pr: &Pr) -> Result<(), String> {
     let root = &project.root;
     let index = git::git_path(root, "index")?;
     let trial = git::git_path(root, "todoer-trial-index")?;
@@ -553,106 +520,96 @@ fn apply_to_working_tree(project: &Project, pr: &Pr, patch: &str) -> Result<(), 
         std::fs::copy(&index, &trial)
             .map_err(|error| format!("cannot copy the git index: {error}"))?;
     }
-    let tried = git::run_with_index(root, &["apply", "--cached", "--3way", patch], &trial);
+    let args = apply_args(pr, &["--cached", "--3way"]);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let tried = git::run_with_index(root, &args, &trial);
     let _ = std::fs::remove_file(&trial);
     let tried = tried?;
     if !tried.ok {
-        return Err(does_not_apply(project, pr, &tried)?);
+        return Err(does_not_merge(project, pr, &tried)?);
     }
-    let applied = git::run(root, &["apply", "--3way", patch])?;
+    let applied = git_apply(root, pr, &["--3way"])?;
     if !applied.ok {
-        return Err(does_not_apply(project, pr, &applied)?);
+        return Err(does_not_merge(project, pr, &applied)?);
     }
     Ok(())
 }
 
-pub fn merge(project: &Project, pr: &Pr, no_commit: bool) -> Result<Merged, String> {
+/// Applies the patch, removes the folder and the todos of the pull request, and stages these
+/// changes. The person commits the merge.
+pub fn merge(project: &Project, pr: &Pr) -> Result<Merged, String> {
     let root = &project.root;
     let lock = project.lock()?;
     check_no_comments(project, pr)?;
-    let todos = Todos::load(root)?;
-    let done: Vec<String> = pr
-        .todos
-        .iter()
-        .filter(|name| todos.get(name).is_some())
-        .cloned()
-        .collect();
-    let mut own = vec![pr.rel_dir()];
-    own.extend(done.iter().map(|name| todo_path(name)));
-    let plan = project.plan_commit(no_commit, &own)?;
-    let patch = pr.dir.join(PATCH).to_string_lossy().into_owned();
-    let already = git::run(root, &["apply", "--reverse", "--check", &patch])?.ok;
-    if !already && plan.commit {
-        let result = git::run(root, &["am", "-q", "--3way", &patch])?;
-        if !result.ok {
-            let _ = git::run(root, &["am", "--abort"]);
-            return Err(does_not_apply(project, pr, &result)?);
-        }
-    } else if !already {
-        apply_to_working_tree(project, pr, &patch)?;
-    }
-    let mut changed = Vec::new();
-    for name in &done {
-        remove_todo(root, name)?;
-    }
-    for name in &done {
-        let todos = Todos::load(root)?;
-        for other in remove_dependency_on(root, &todos, name)? {
-            if !changed.contains(&other) {
-                changed.push(other);
-            }
-        }
-    }
-    let removed_labels = remove_label_dependencies_without_todos(root, &Todos::load(root)?)?;
-    let mut paths = changed.clone();
-    for (name, _) in &removed_labels {
-        if !paths.contains(name) {
-            paths.push(name.clone());
-        }
+    let already = git_apply(root, pr, &["--reverse", "--check"])?.ok;
+    if !already {
+        merge_into_working_tree(project, pr)?;
     }
     std::fs::remove_dir_all(&pr.dir)
         .map_err(|error| format!("cannot remove {}: {error}", pr.rel_dir()))?;
-    if plan.commit {
-        own.extend(paths.iter().map(|name| todo_path(name)));
-        if already {
-            project.commit(&lock, &merge_message(&pr.name), &own)?;
-        } else {
-            project.amend(&lock, &own)?;
-        }
-    }
+    project.stage(&lock, &[pr.rel_dir()])?;
+    let done = remove_todos(project, &lock, pr)?;
     Ok(Merged {
         applied: !already,
         done,
-        changed,
-        removed_labels,
-        plan,
+        message: merge_message(&pr.name),
     })
 }
 
-/// Applies the patch to the working tree and the index of the current checkout, and does not
-/// commit. Then a person can run the code, or continue the work and submit with `--update`.
-pub fn apply(project: &Project, pr: &Pr) -> Result<bool, String> {
-    let root = &project.root;
-    let _lock = project.lock()?;
-    check_clean(project, &project.branch_name()?)?;
-    let patch = pr.dir.join(PATCH).to_string_lossy().into_owned();
-    let already = git::run(root, &["apply", "--reverse", "--check", &patch])?.ok;
-    if !already {
-        apply_to_working_tree(project, pr, &patch)?;
-    }
-    Ok(!already)
+pub enum Applied {
+    Already,
+    Clean,
+    Conflicts(Vec<String>),
 }
 
-pub fn close(project: &Project, pr: &Pr, no_commit: bool) -> Result<CommitPlan, String> {
+pub struct ApplyResult {
+    pub applied: Applied,
+    pub done: Vec<String>,
+}
+
+/// Applies the patch to the working tree and the index of the current checkout, with conflict
+/// markers where the branch moved. Then a person can run the code, or continue the work and submit
+/// with `--update`.
+pub fn apply(project: &Project, pr: &Pr) -> Result<ApplyResult, String> {
+    let root = &project.root;
     let lock = project.lock()?;
-    let own = [pr.rel_dir()];
-    let plan = project.plan_commit(no_commit, &own)?;
-    std::fs::remove_dir_all(&pr.dir)
-        .map_err(|error| format!("cannot remove {}: {error}", pr.rel_dir()))?;
-    if plan.commit {
-        project.commit(&lock, &format!("todoer: close {}", pr.name), &own)?;
+    let branch = project.branch_name()?;
+    check_clean(project, pr, &branch)?;
+    let applied = if git_apply(root, pr, &["--reverse", "--check"])?.ok {
+        Applied::Already
+    } else {
+        apply_with_conflicts(project, pr, &branch)?
+    };
+    let done = remove_todos(project, &lock, pr)?;
+    Ok(ApplyResult { applied, done })
+}
+
+fn apply_with_conflicts(project: &Project, pr: &Pr, branch: &str) -> Result<Applied, String> {
+    let root = &project.root;
+    let applied = git_apply(root, pr, &["--3way"])?;
+    if applied.ok {
+        return Ok(Applied::Clean);
     }
-    Ok(plan)
+    let conflicts: Vec<String> = git::text(root, &["diff", "--name-only", "--diff-filter=U"])?
+        .lines()
+        .map(str::to_string)
+        .collect();
+    if conflicts.is_empty() {
+        if let Some(message) = lacks_base(project, pr, &format!("todoer pr apply {}", pr.name))? {
+            return Err(message);
+        }
+        return Err(format!(
+            "the patch does not apply on {branch} - nothing changed:\n{}",
+            apply_message(&applied)
+        ));
+    }
+    Ok(Applied::Conflicts(conflicts))
+}
+
+pub fn close(project: &Project, pr: &Pr) -> Result<(), String> {
+    let _lock = project.lock()?;
+    std::fs::remove_dir_all(&pr.dir)
+        .map_err(|error| format!("cannot remove {}: {error}", pr.rel_dir()))
 }
 
 pub fn add_comment(

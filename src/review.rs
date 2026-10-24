@@ -140,7 +140,7 @@ pub fn check_target(
             for number in *start..=*end {
                 let line = file.find_line(true, number).ok_or_else(|| {
                         format!(
-                            "line {number} of the old version of {path} is not in the diff - run todoer pr details to see the lines"
+                            "line {number} of the old version of {path} is not in the diff - run todoer pr show to see the lines"
                         )
                     })?;
                 quote.push(line.text.clone());

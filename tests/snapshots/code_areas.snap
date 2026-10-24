@@ -1,38 +1,50 @@
-$ todoer pr submit --branch main -n use-three-for-b [cwd: fix-sum]
-submitted use-three-for-b: 1 commit, 3 files, into main
-.todoer/prs/use-three-for-b on main, in the checkout <tmp>/repo
-committed on main
+$ todoer pr submit --branch fix-sum -n use-three-for-b
+submitted use-three-for-b: 1 commit, 4 files, from fix-sum into main
+todos: fix-the-sum
+the pull request is not committed - to share it, run: git add -A .todoer/prs/use-three-for-b && git commit -m "todoer: submit use-three-for-b" -- .todoer/prs/use-three-for-b
 
-$ todoer pr summary use-three-for-b
+$ todoer pr show use-three-for-b --summary
 use-three-for-b   open  by me@example.com
-base b1b3d80
+base d05187b   todos: fix-the-sum
 
- M  docs/guide.md             +1
- M  src/app.rs                +1 -1
+ D  .todoer/todos/fix-the-sum.md     -1
+ M  docs/guide.md                 +1
+ M  src/app.rs                    +1 -1
  R  src/old.rs -> src/lib.rs
-3 files, +2 -1
+4 files, +2 -2
 
 areas
-  rust    1 file  +0 -0
-  legacy  1 file  +0 -0
-  app     1 file  +1 -1
-  guides  1 file  +1 -0
+  rust       1 file  +0 -0
+  legacy     1 file  +0 -0
+  app        1 file  +1 -1
+  guides     1 file  +1 -0
+  (no area)  1 file  +0 -1
 
-$ todoer pr summary use-three-for-b -a legacy,app
+$ todoer pr show use-three-for-b --summary -a legacy,app
 use-three-for-b   open  by me@example.com
-base b1b3d80
+base d05187b   todos: fix-the-sum
 
  M  src/app.rs                +1 -1
  R  src/old.rs -> src/lib.rs
 2 files, +1 -1
-showing areas legacy, app: 2 of 3 files
+showing areas legacy, app: 2 of 4 files
 
 areas
   rust    1 file  +0 -0
   legacy  1 file  +0 -0
   app     1 file  +1 -1
 
-$ todoer pr details use-three-for-b --area app
+$ todoer pr show use-three-for-b --area app
+use-three-for-b   open  by me@example.com
+base d05187b   todos: fix-the-sum
+
+ M  src/app.rs  +1 -1
+1 file, +1 -1
+showing area app: 1 of 4 files
+
+areas
+  app  1 file  +1 -1
+
 src/app.rs  (M, +1 -1)
            | @@ -1,5 +1,5 @@
     1    1 |   fn main() {
@@ -42,24 +54,53 @@ src/app.rs  (M, +1 -1)
     4    4 |       println!("{}", a + b);
     5    5 |   }
 
-$ todoer pr details use-three-for-b -a legacy -a rust
-src/old.rs -> src/lib.rs  (R)
-
-$ todoer pr summary use-three-for-b -x app
+$ todoer pr show use-three-for-b -a legacy -a rust
 use-three-for-b   open  by me@example.com
-base b1b3d80
+base d05187b   todos: fix-the-sum
 
- M  docs/guide.md             +1
  R  src/old.rs -> src/lib.rs
-2 files, +1 -0
-showing all but area app: 2 of 3 files
+1 file, +0 -0
+showing areas legacy, rust: 1 of 4 files
 
 areas
   rust    1 file  +0 -0
   legacy  1 file  +0 -0
-  guides  1 file  +1 -0
 
-$ todoer pr details use-three-for-b -x rust,legacy,app
+src/old.rs -> src/lib.rs  (R)
+
+$ todoer pr show use-three-for-b --summary -x app
+use-three-for-b   open  by me@example.com
+base d05187b   todos: fix-the-sum
+
+ D  .todoer/todos/fix-the-sum.md     -1
+ M  docs/guide.md                 +1
+ R  src/old.rs -> src/lib.rs
+3 files, +1 -1
+showing all but area app: 3 of 4 files
+
+areas
+  rust       1 file  +0 -0
+  legacy     1 file  +0 -0
+  guides     1 file  +1 -0
+  (no area)  1 file  +0 -1
+
+$ todoer pr show use-three-for-b -x rust,legacy,app
+use-three-for-b   open  by me@example.com
+base d05187b   todos: fix-the-sum
+
+ D  .todoer/todos/fix-the-sum.md     -1
+ M  docs/guide.md                 +1
+2 files, +1 -1
+showing all but areas rust, legacy, app: 2 of 4 files
+
+areas
+  guides     1 file  +1 -0
+  (no area)  1 file  +0 -1
+
+.todoer/todos/fix-the-sum.md  (D, +0 -1)
+           | @@ -1 +0,0 @@
+    1      | - Make the sum right.
+
 docs/guide.md  (M, +1 -0)
            | @@ -9,3 +9,4 @@ line 6
     9    9 |   line 7
@@ -67,10 +108,16 @@ docs/guide.md  (M, +1 -0)
    11   11 |   line 9
         12 | + line 10
 
-$ todoer pr details use-three-for-b -a app -x app
+$ todoer pr show use-three-for-b -a app -x app
+use-three-for-b   open  by me@example.com
+base d05187b   todos: fix-the-sum
+
+0 files, +0 -0
+showing area app, not area app: 0 of 4 files
+
 no file matches area app, not area app
 
-$ todoer pr summary use-three-for-b -a nope
+$ todoer pr show use-three-for-b --summary -a nope
 exit code: 1
 --- stderr
 error: there is no area nope - the areas are: rust, legacy, app, guides

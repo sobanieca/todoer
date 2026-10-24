@@ -1,17 +1,14 @@
-//! `todoer pr ...`: submit, ls, merge, apply, close, summary, details, comment and review.
+//! `todoer pr ...`: submit, ls, show, comment, apply and close.
 
 use crate::areas::{Areas, Filter};
 use crate::args::{self, Args, Flag, option, switch};
 use crate::colors;
-use crate::commands::report;
-use crate::commands::todos::print_removed_labels;
 use crate::json::{self, Value};
 use crate::pr_view::{self, DetailsOptions};
 use crate::project::Project;
-use crate::prs::{self, Destination, Pr, SubmitOptions};
+use crate::prs::{self, Applied, ApplyResult, Pr, SubmitOptions};
 use crate::review;
 use crate::terminal;
-use crate::todos::name_of;
 
 struct Sub {
     name: &'static str,
@@ -24,15 +21,13 @@ const SUBMIT_FLAGS: &[Flag] = &[
     option("branch", Some('b')),
     option("name", Some('n')),
     option("message", Some('m')),
-    option("todo", None),
     switch("update", None),
-    switch("no-commit", None),
 ];
 const LS_FLAGS: &[Flag] = &[switch("json", None)];
 const NO_FLAGS: &[Flag] = &[];
-const COMMIT_FLAGS: &[Flag] = &[switch("no-commit", None)];
-const AREA_FLAGS: &[Flag] = &[option("area", Some('a')), option("exclude", Some('x'))];
-const DETAILS_FLAGS: &[Flag] = &[
+const APPLY_FLAGS: &[Flag] = &[switch("merge", None)];
+const SHOW_FLAGS: &[Flag] = &[
+    switch("summary", None),
     option("area", Some('a')),
     option("exclude", Some('x')),
     option("context", None),
@@ -42,7 +37,7 @@ const DETAILS_FLAGS: &[Flag] = &[
 const SUBS: &[Sub] = &[
     Sub {
         name: "submit",
-        usage: "todoer pr submit --branch <branch> -n <name> [-m <text>] [--todo <name>]... [--update] [--no-commit]",
+        usage: "todoer pr submit --branch <branch> -n <name> [-m <text>] [--update]",
         flags: SUBMIT_FLAGS,
         run: submit,
     },
@@ -53,34 +48,10 @@ const SUBS: &[Sub] = &[
         run: ls,
     },
     Sub {
-        name: "merge",
-        usage: "todoer pr merge <pr> [--no-commit]",
-        flags: COMMIT_FLAGS,
-        run: merge,
-    },
-    Sub {
-        name: "apply",
-        usage: "todoer pr apply <pr>",
-        flags: NO_FLAGS,
-        run: apply,
-    },
-    Sub {
-        name: "close",
-        usage: "todoer pr close <pr> [--no-commit]",
-        flags: COMMIT_FLAGS,
-        run: close,
-    },
-    Sub {
-        name: "summary",
-        usage: "todoer pr summary <pr> [-a <area,...>] [-x <area,...>]",
-        flags: AREA_FLAGS,
-        run: summary,
-    },
-    Sub {
-        name: "details",
-        usage: "todoer pr details <pr> [file...] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]",
-        flags: DETAILS_FLAGS,
-        run: details,
+        name: "show",
+        usage: "todoer pr show <pr> [file...] [--summary] [--context N] [--lines 40-80] [-a <area,...>] [-x <area,...>]",
+        flags: SHOW_FLAGS,
+        run: show,
     },
     Sub {
         name: "comment",
@@ -89,10 +60,16 @@ const SUBS: &[Sub] = &[
         run: comment,
     },
     Sub {
-        name: "review",
-        usage: "todoer pr review <pr> [-a <area,...>] [-x <area,...>]",
-        flags: AREA_FLAGS,
-        run: review_command,
+        name: "apply",
+        usage: "todoer pr apply <pr> [--merge]",
+        flags: APPLY_FLAGS,
+        run: apply,
+    },
+    Sub {
+        name: "close",
+        usage: "todoer pr close <pr>",
+        flags: NO_FLAGS,
+        run: close,
     },
 ];
 
@@ -134,16 +111,13 @@ fn usage_all() -> String {
 fn submit(args: &Args) -> Result<(), String> {
     args.expect_positional(0, 0, usage("submit"))?;
     let project = Project::find()?;
-    let todos: Vec<String> = args.values("todo").iter().map(|arg| name_of(arg)).collect();
     let result = prs::submit(
         &project,
         &SubmitOptions {
             branch: args.value("branch"),
             name: args.value("name"),
             message: args.value("message"),
-            todos: &todos,
             update: args.has("update"),
-            no_commit: args.has("no-commit"),
         },
     )?;
     let pr = &result.pr;
@@ -157,28 +131,17 @@ fn submit(args: &Args) -> Result<(), String> {
         count => format!("{count} commits squashed to 1"),
     };
     println!(
-        "{what} {}: {commits}, {}, into {}",
+        "{what} {}: {commits}, {}, from {} into {}",
         pr.name,
         plural(result.files, "file"),
+        result.from,
         result.into
     );
-    match &result.destination {
-        Destination::Checkout(target) => println!(
-            "{} on {}, in the checkout {}",
-            pr.rel_dir(),
-            result.into,
-            target.root.display()
-        ),
-        Destination::Branch(_) => println!("{} on {}", pr.rel_dir(), result.into),
-    }
     if !pr.todos.is_empty() {
         println!("todos: {}", pr.todos.join(", "));
     }
-    if result.kept.description {
+    if result.kept_description {
         println!("kept the description of the old pull request - give -m to replace it");
-    }
-    if result.kept.todos {
-        println!("kept the todos of the old pull request - give --todo to replace them");
     }
     if let Some(review) = result.cleared.filter(|review| !review.comments.is_empty()) {
         println!(
@@ -186,20 +149,12 @@ fn submit(args: &Args) -> Result<(), String> {
             plural(review.comments.len(), "comment")
         );
     }
-    if result.plan.commit {
-        println!("committed on {}", result.into);
-    } else if result.plan.others.is_empty() {
-        println!(
-            "not committed (--no-commit) - the pull request is in the working tree of {}",
-            result.into
-        );
-    } else {
-        crate::logger::warn(&format!(
-            "not committed - the checkout of {} has other changes: {}. The pull request is in its working tree. Commit it yourself",
-            result.into,
-            result.plan.others.join(", ")
-        ));
-    }
+    println!(
+        "the pull request is not committed - to share it, run: git add -A {path} && git commit -m \"todoer: {action} {}\" -- {path}",
+        pr.name,
+        action = if result.created { "submit" } else { "update" },
+        path = pr.rel_dir()
+    );
     Ok(())
 }
 
@@ -253,11 +208,8 @@ fn first(args: &Args) -> &str {
     &args.positional[0]
 }
 
-fn merge(args: &Args) -> Result<(), String> {
-    args.expect_positional(1, 1, usage("merge"))?;
-    let project = Project::find()?;
-    let pr = prs::resolve(&project, first(args))?;
-    let merged = prs::merge(&project, &pr, args.has("no-commit"))?;
+fn merge(project: &Project, pr: &Pr) -> Result<(), String> {
+    let merged = prs::merge(project, pr)?;
     let branch = project.branch_name()?;
     if merged.applied {
         println!("merged {} into {branch}", pr.name);
@@ -270,11 +222,10 @@ fn merge(args: &Args) -> Result<(), String> {
     for name in &merged.done {
         println!("done: {name}");
     }
-    for name in &merged.changed {
-        println!("updated dependsOn in {name}");
-    }
-    print_removed_labels(&merged.removed_labels);
-    report(&merged.plan);
+    println!(
+        "the merge is staged and not committed - to commit it, run: git commit -m \"{}\"",
+        merged.message
+    );
     Ok(())
 }
 
@@ -282,18 +233,34 @@ fn apply(args: &Args) -> Result<(), String> {
     args.expect_positional(1, 1, usage("apply"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    let applied = prs::apply(&project, &pr)?;
+    if args.has("merge") {
+        return merge(&project, &pr);
+    }
+    let ApplyResult { applied, done } = prs::apply(&project, &pr)?;
     let branch = project.branch_name()?;
-    if applied {
-        println!(
+    match applied {
+        Applied::Clean => println!(
             "applied {} to the working tree of {branch} - not committed",
             pr.name
-        );
-    } else {
-        println!("the changes of {} are already on {branch}", pr.name);
+        ),
+        Applied::Already => println!("the changes of {} are already on {branch}", pr.name),
+        Applied::Conflicts(paths) => {
+            println!(
+                "applied {} to the working tree of {branch} with conflicts in: {} - not committed",
+                pr.name,
+                paths.join(", ")
+            );
+            println!(
+                "resolve the conflicts, then run: git add -- {}",
+                paths.join(" ")
+            );
+        }
+    }
+    for name in &done {
+        println!("done: {name}");
     }
     println!(
-        "to update the pull request, commit your changes, then run: todoer pr submit --branch <the branch that the pull request goes into> -n {} --update -m \"<what you changed>\"",
+        "to update the pull request, commit your changes, then run in the checkout of the branch that the pull request goes into: todoer pr submit --branch {branch} -n {} --update -m \"<what you changed>\"",
         pr.name
     );
     Ok(())
@@ -303,25 +270,16 @@ fn close(args: &Args) -> Result<(), String> {
     args.expect_positional(1, 1, usage("close"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    let plan = prs::close(&project, &pr, args.has("no-commit"))?;
+    prs::close(&project, &pr)?;
     println!("closed {}", pr.name);
     if !pr.todos.is_empty() {
-        println!(
-            "the todos stay: {} - run todoer unclaim <name> to free a todo",
-            pr.todos.join(", ")
-        );
+        println!("the todos stay: {}", pr.todos.join(", "));
     }
-    report(&plan);
-    Ok(())
-}
-
-fn summary(args: &Args) -> Result<(), String> {
-    args.expect_positional(1, 1, usage("summary"))?;
-    let project = Project::find()?;
-    let pr = prs::resolve(&project, first(args))?;
-    let areas = Areas::load(&project.root);
-    let filter = area_filter(&areas, args)?;
-    print!("{}", pr_view::summary(&pr, &filter));
+    println!(
+        "not committed - to share the close, run: git add -A {path} && git commit -m \"todoer: close {}\" -- {path}",
+        pr.name,
+        path = pr.rel_dir()
+    );
     Ok(())
 }
 
@@ -346,17 +304,32 @@ fn details_text(
     pr_view::details(project, pr, &options)
 }
 
-fn details(args: &Args) -> Result<(), String> {
-    args.expect_positional(1, usize::MAX, usage("details"))?;
+fn show(args: &Args) -> Result<(), String> {
+    args.expect_positional(1, usize::MAX, usage("show"))?;
     let project = Project::find()?;
     let pr = prs::resolve(&project, first(args))?;
-    let paths = args.positional[1..]
+    let paths: Vec<String> = args.positional[1..]
         .iter()
         .map(|path| project.relative(path).unwrap_or_else(|_| path.clone()))
         .collect();
     let areas = Areas::load(&project.root);
     let filter = area_filter(&areas, args)?;
-    let text = details_text(&project, &pr, args, paths, &filter)?;
+    if args.has("summary") {
+        if !paths.is_empty() || args.has("context") || args.has("lines") {
+            return Err(format!(
+                "--summary takes no file, --context or --lines - use: {}",
+                usage("show")
+            ));
+        }
+        print!("{}", pr_view::summary(&pr, &filter));
+        return Ok(());
+    }
+    let mut text = String::new();
+    if paths.is_empty() {
+        text.push_str(&pr_view::summary(&pr, &filter));
+        text.push('\n');
+    }
+    text.push_str(&details_text(&project, &pr, args, paths, &filter)?);
     terminal::page(&text);
     Ok(())
 }
@@ -408,18 +381,5 @@ fn comment(args: &Args) -> Result<(), String> {
         pr.name,
         path = pr.rel(prs::REVIEW)
     );
-    Ok(())
-}
-
-fn review_command(args: &Args) -> Result<(), String> {
-    args.expect_positional(1, 1, usage("review"))?;
-    let project = Project::find()?;
-    let pr = prs::resolve(&project, first(args))?;
-    let areas = Areas::load(&project.root);
-    let filter = area_filter(&areas, args)?;
-    let mut text = pr_view::summary(&pr, &filter);
-    text.push('\n');
-    text.push_str(&details_text(&project, &pr, args, Vec::new(), &filter)?);
-    terminal::page(&text);
     Ok(())
 }

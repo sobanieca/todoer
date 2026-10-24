@@ -92,18 +92,6 @@ pub fn run_with_index(cwd: &Path, args: &[&str], index: &Path) -> Result<Output,
     })
 }
 
-pub fn check_with_index(cwd: &Path, args: &[&str], index: &Path) -> Result<Output, String> {
-    let output = run_with_index(cwd, args, index)?;
-    if !output.ok {
-        return Err(format!(
-            "git {} failed: {}",
-            args.first().unwrap_or(&""),
-            output.message()
-        ));
-    }
-    Ok(output)
-}
-
 pub fn git_path(cwd: &Path, name: &str) -> Result<PathBuf, String> {
     text(
         cwd,

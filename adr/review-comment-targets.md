@@ -23,6 +23,6 @@ target for the whole pull request.**
 
 ## Consequences
 
-- An agent reads every target type with `todoer pr details`. It shows a line outside the changes
+- An agent reads every target type with `todoer pr show`. It shows a line outside the changes
   with two lines around it, in line order with the hunks.
-- `pr summary` lists a file that the pull request does not change when a comment names it.
+- `pr show` lists a file that the pull request does not change when a comment names it.

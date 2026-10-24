@@ -13,14 +13,17 @@ and the person gives it with `-n`.
 **The message of the squash in `pr.patch` is `todoer: merge <name>`. todoer does not use the
 messages of the work commits.**
 
-- `pr merge` runs `git am`, so the commit on the branch has this message.
-- When the changes are already on the branch, `pr merge` commits the removal of the folder with the
-  same message.
+- `pr apply --merge` does not commit (see [todoer-never-commits](todoer-never-commits.md)). It
+  prints `git commit -m "todoer: merge <name>"`, so the person commits the merge with this
+  message.
+- `git am` of `pr.patch` makes a commit with this message.
 - The description of `pr.md` is not in the message.
 
 ## Consequences
 
-- The git log of a branch shows one `todoer: merge <name>` commit for each merged pull request.
+- When the person uses the printed command, the git log of a branch shows one
+  `todoer: merge <name>` commit for each merged pull request.
 - An update by any person, from any branch, does not change the message.
 - To read the description, read `pr.md` in the parent of the merge commit.
-- The author of the commit is the person of the latest submit.
+- The author of the merge commit is the person who commits it. The author of the latest submit is
+  in `pr.md`, in the parent of the merge commit.

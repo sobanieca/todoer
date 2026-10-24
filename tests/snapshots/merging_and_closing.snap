@@ -1,81 +1,70 @@
-$ todoer pr submit --branch main -n 'First try' [cwd: fix-sum]
+$ todoer pr submit --branch fix-sum -n 'First try'
 exit code: 1
 --- stderr
 error: "First try" is not a pull request name - use first-try
 
-$ todoer pr submit --branch main -n first-try [cwd: fix-sum]
-submitted first-try: 1 commit, 3 files, into main
-.todoer/prs/first-try on main, in the checkout <tmp>/repo
-committed on main
+$ todoer pr submit --branch fix-sum -n first-try
+submitted first-try: 1 commit, 4 files, from fix-sum into main
+todos: fix-the-sum
+the pull request is not committed - to share it, run: git add -A .todoer/prs/first-try && git commit -m "todoer: submit first-try" -- .todoer/prs/first-try
 
 $ todoer pr close first-try
 closed first-try
+the todos stay: fix-the-sum
+not committed - to share the close, run: git add -A .todoer/prs/first-try && git commit -m "todoer: close first-try" -- .todoer/prs/first-try
 
-$ git log --format=%s -1 && ls .todoer
-todoer: close first-try
+$ git status --short && ls .todoer
+ D .todoer/prs/first-try/pr.diff
+ D .todoer/prs/first-try/pr.md
+ D .todoer/prs/first-try/pr.patch
 prs
 todos
 
-$ todoer pr submit --branch main -n second-try --todo fix-the-sum [cwd: fix-sum]
+$ todoer pr submit --branch fix-sum -n second-try
 exit code: 1
 --- stderr
-error: fix-sum has changes that are not committed: notes.txt - commit them first
+error: fix-sum has changes that are not committed in <tmp>/fix-sum: notes.txt - commit them first
 
-$ todoer pr submit --branch main -n second-try --todo fix-the-sum [cwd: fix-sum]
-submitted second-try: 1 commit, 3 files, into main
-.todoer/prs/second-try on main, in the checkout <tmp>/repo
+$ todoer pr submit --branch fix-sum -n second-try
+submitted second-try: 1 commit, 4 files, from fix-sum into main
 todos: fix-the-sum
-committed on main
+the pull request is not committed - to share it, run: git add -A .todoer/prs/second-try && git commit -m "todoer: submit second-try" -- .todoer/prs/second-try
 
-$ todoer pr submit --branch main -n second-try [cwd: fix-sum]
+$ todoer pr submit --branch fix-sum-2 -n second-try
 exit code: 1
 --- stderr
 error: main already has the pull request second-try - use -n second-try --update to replace it, or another -n to make a new pull request
 
-$ todoer pr submit --branch main -n nope --update [cwd: fix-sum]
+$ todoer pr submit --branch fix-sum-2 -n nope --update
 exit code: 1
 --- stderr
 error: main has no pull request nope - remove --update to make it. The open pull requests on main: second-try
 
-$ todoer pr submit --branch main -n second-try --update -m 'From a new branch.' --todo fix-the-sum [cwd: fix-sum]
-updated second-try: 1 commit, 3 files, into main
-.todoer/prs/second-try on main, in the checkout <tmp>/repo
+$ todoer pr submit --branch fix-sum-2 -n second-try --update -m 'From a new branch.'
+updated second-try: 1 commit, 4 files, from fix-sum-2 into main
 todos: fix-the-sum
-committed on main
+the pull request is not committed - to share it, run: git add -A .todoer/prs/second-try && git commit -m "todoer: update second-try" -- .todoer/prs/second-try
+
+$ todoer pr ls [cwd: fix-sum]
+no open pull requests
 
 $ todoer pr ls && git log --format=%s -1 && git status --short
 second-try  no comments  me@example.com
-todoer: update second-try
+Update second-try
 
-$ todoer pr merge second-try
+$ todoer pr apply second-try --merge
 merged second-try into main
 done: fix-the-sum
---- stderr
-warning: not committed - the checkout has other changes: notes.txt. The changes of todoer are in the working tree. Commit them yourself
-
-$ git log --format=%s -1 && git status --short
-todoer: update second-try
- D .todoer/prs/second-try/pr.diff
- D .todoer/prs/second-try/pr.md
- D .todoer/prs/second-try/pr.patch
- D .todoer/todos/fix-the-sum.md
-M  docs/guide.md
- M notes.txt
-M  src/app.rs
-R  src/old.rs -> src/lib.rs
-
-$ todoer pr merge second-try --no-commit
-merged second-try into main
-done: fix-the-sum
-not committed (--no-commit) - the changes are in the working tree
+the merge is staged and not committed - to commit it, run: git commit -m "todoer: merge second-try"
 
 $ git log --format=%s -1 && git status --short && cat src/app.rs
-todoer: update second-try
- D .todoer/prs/second-try/pr.diff
- D .todoer/prs/second-try/pr.md
- D .todoer/prs/second-try/pr.patch
- D .todoer/todos/fix-the-sum.md
+Update second-try
+D  .todoer/prs/second-try/pr.diff
+D  .todoer/prs/second-try/pr.md
+D  .todoer/prs/second-try/pr.patch
+D  .todoer/todos/fix-the-sum.md
 M  docs/guide.md
+ M notes.txt
 M  src/app.rs
 R  src/old.rs -> src/lib.rs
 fn main() {
@@ -84,17 +73,10 @@ fn main() {
     println!("{}", a + b);
 }
 
-$ todoer pr merge second-try
+$ todoer pr apply second-try --merge
 exit code: 1
 --- stderr
-error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --branch main -n second-try --update:
-Patch failed at 0001 todoer: merge second-try
-error: Failed to merge in the changes.
-
-$ todoer pr merge second-try --no-commit
-exit code: 1
---- stderr
-error: the patch does not apply on main - nothing changed. Ask the author to rebase the branch on main and run todoer pr submit --branch main -n second-try --update:
+error: the patch does not apply on main - nothing changed. To update the pull request, make a new branch from main, run todoer pr apply second-try there, resolve the conflicts and commit, then run todoer pr submit --branch <the new branch> -n second-try --update on main:
 Applied patch to 'src/app.rs' with conflicts.
 
 $ git log --format=%s -1 && git status --short
@@ -104,22 +86,22 @@ $ todoer pr comment second-try 'Add a test.'
 added the comment c1 on the pull request in second-try
 the review is not committed - when it is done, run: git add .todoer/prs/second-try/review.md && git commit -m "Review second-try" -- .todoer/prs/second-try/review.md
 
-$ todoer pr merge second-try
+$ todoer pr apply second-try --merge
 exit code: 1
 --- stderr
-error: second-try has the unresolved comments c1 - the author must do what they ask, then run todoer pr submit --branch main -n second-try --update
+error: second-try has the unresolved comments c1 - the author must do what they ask, then run todoer pr submit --branch <the branch of the work> -n second-try --update on main
 
-$ todoer pr close second-try --no-commit && git status --short
+$ todoer pr apply second-try --merge --no-commit
+exit code: 1
+--- stderr
+error: unknown option --no-commit for "todoer pr apply" - run todoer pr apply --help
+
+$ todoer pr close second-try && git status --short && todoer pr ls
 closed second-try
-the todos stay: fix-the-sum - run todoer unclaim <name> to free a todo
-not committed (--no-commit) - the changes are in the working tree
+the todos stay: fix-the-sum
+not committed - to share the close, run: git add -A .todoer/prs/second-try && git commit -m "todoer: close second-try" -- .todoer/prs/second-try
  D .todoer/prs/second-try/pr.diff
  D .todoer/prs/second-try/pr.md
  D .todoer/prs/second-try/pr.patch
-
-$ todoer pr close second-try && git log --format=%s -1 && todoer pr ls
-closed second-try
-the todos stay: fix-the-sum - run todoer unclaim <name> to free a todo
-todoer: close second-try
 no open pull requests
 

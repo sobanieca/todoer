@@ -11,7 +11,6 @@ mod pr_view;
 mod project;
 mod prs;
 mod review;
-mod rules;
 mod terminal;
 mod todos;
 mod update;
@@ -26,32 +25,8 @@ type Run = fn(&args::Args) -> Result<(), String>;
 const COMMANDS: &[(&str, &[Flag], Run)] = &[
     ("ls", commands::todos::LS_FLAGS, commands::todos::ls),
     ("show", commands::todos::SHOW_FLAGS, commands::todos::show),
-    ("add", commands::todos::ADD_FLAGS, commands::todos::add),
+    ("add", &[], commands::todos::add),
     ("done", &[], commands::todos::done),
-    ("mv", &[], commands::todos::mv),
-    ("check", &[], commands::todos::check),
-    (
-        "claim",
-        commands::todos::CLAIM_FLAGS,
-        commands::todos::claim,
-    ),
-    (
-        "unclaim",
-        commands::todos::UNCLAIM_FLAGS,
-        commands::todos::unclaim,
-    ),
-    ("dep", commands::deps::FLAGS, commands::deps::run),
-    ("label", &[], commands::labels::label),
-    (
-        "labels",
-        commands::labels::LABELS_FLAGS,
-        commands::labels::labels,
-    ),
-    (
-        "progress",
-        commands::labels::PROGRESS_FLAGS,
-        commands::labels::progress,
-    ),
     ("skill", commands::skill::FLAGS, commands::skill::run),
 ];
 

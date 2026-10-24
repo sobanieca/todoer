@@ -2,7 +2,6 @@
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Null,
     Number(f64),
     String(String),
     Array(Vec<Value>),
@@ -16,10 +15,6 @@ impl Value {
 
     pub fn strings(items: &[String]) -> Value {
         Value::Array(items.iter().map(|item| Value::str(item)).collect())
-    }
-
-    pub fn opt(text: Option<&str>) -> Value {
-        text.map_or(Value::Null, Value::str)
     }
 
     pub fn object(entries: Vec<(&str, Value)>) -> Value {
@@ -60,7 +55,6 @@ fn write(value: &Value, depth: usize, out: &mut String) {
     let indent = "  ".repeat(depth + 1);
     let close = "  ".repeat(depth);
     match value {
-        Value::Null => out.push_str("null"),
         Value::Number(n) => {
             if n.fract() == 0.0 && n.abs() < 1e15 {
                 out.push_str(&format!("{}", *n as i64));

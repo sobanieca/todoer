@@ -3,17 +3,18 @@
 ## What this repo is
 
 `todoer` keeps the todos and the pull requests of a git project as plain files in git.
-AI agents and people claim todos, work in git worktrees, and review on the command line. todoer is
+AI agents and people work on the todos in git worktrees, and review on the command line. todoer is
 one Rust binary.
 
-- A todo is a file `.todoer/todos/<name>.md`. The name is the id and the title. The front matter
-  has `assignee`, `labels`, `dependsOn` and `dependsOnLabels`. All are optional.
-- A todo with an assignee is in progress. A todo without an assignee is new.
-- A todo file exists only while the work is open. `todoer done` and `todoer pr merge` remove it.
-  git history keeps it.
+- A todo is a file `.todoer/todos/<name>.md`. The name is the id and the title. The file is plain
+  markdown. Todos have no assignee, no state, no labels and no dependencies.
+- A todo file exists only while the work is open. `todoer done` and `todoer pr apply --merge`
+  remove it. git history keeps it.
 - A pull request is a folder `.todoer/prs/<name>/`, with the patch, the diff and the review of the
-  latest submit. `todoer pr submit --branch <b>` commits it on `b`, the branch that it goes into.
+  latest submit. In the checkout of the branch that it goes into, `todoer pr submit --branch <work>`
+  writes it in the working tree.
 - todoer has no main branch and no settings file. It works on the current checkout, on any branch.
+- todoer never commits. The person commits the changes.
 
 ## todoer is unreleased - do not preserve backward compatibility
 
@@ -33,15 +34,14 @@ crate. Run git as a child process.
 | Module                                   | Job                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------- |
 | `src/main.rs`                            | the command table, `help`, `version`                                 |
-| `src/commands/`                          | one file per command group: todos, deps, labels, pr, skill           |
+| `src/commands/`                          | one file per command group: todos, pr, skill                         |
 | `src/args.rs`                            | the argument parser; each command declares its flags                 |
-| `src/project.rs`                         | the current checkout, the lock, the commits of todoer                |
-| `src/todos.rs`, `src/frontmatter.rs`     | the todo files, the dependency graph, the front matter               |
+| `src/project.rs`                         | the current checkout, the lock, the staging of a merge               |
+| `src/todos.rs`, `src/frontmatter.rs`     | the todo files, and the front matter of `pr.md`                      |
 | `src/prs.rs`                             | submit, merge, close, comments                                       |
 | `src/review.rs`, `src/diff.rs`           | the review file format, the comment targets, the diff parser         |
-| `src/pr_view.rs`                         | the text of `pr summary` and `pr details`                            |
+| `src/pr_view.rs`                         | the text of `pr show`                                                |
 | `src/areas.rs`                           | the code areas and the gitignore pattern matcher                     |
-| `src/rules.rs`                           | the label rules in `.todoer/labels/`                                 |
 | `src/terminal.rs`                        | stdin and `$PAGER`                                                   |
 | `src/git.rs`                             | git as a child process                                               |
 | `src/json.rs`                            | the JSON writer, for `--json`                                        |
@@ -53,39 +53,37 @@ Rules that keep the data correct:
 
 - **todoer knows no main branch.** Every command reads and writes `.todoer/` of the current
   checkout, on any branch. Never add a setting or a guess for a main branch.
-- **todoer commits only its own files.** `claim`, `unclaim` and the pull request commands commit.
-  Call `Project::plan_commit` before the change: it skips the commit for `--no-commit` and when the
-  checkout has other tracked changes. Then `Project::commit` commits only the named paths.
-  `pr merge` uses `Project::amend` to add its paths to the commit of the patch.
-- **A submit lands on the branch that it goes into.** When that branch is checked out, `pr submit`
-  writes and commits in that checkout. Else `Project::commit_to_branch` commits the folder on the
-  branch with a temporary index. No other command changes a branch that is not checked out.
-- **todoer does few git operations.** It reads the diff, the patch and old files, `pr merge`
-  and `pr apply` apply a patch, and `pr submit` commits its folder. It never pushes or fetches.
+- **todoer never commits.** No command runs `git commit`, `git am` or `git update-ref`. The
+  squash of a submit is a `git commit-tree` object on no branch. There is no `--no-commit` option.
+  A command changes the working tree of the current checkout, and prints the git command that
+  commits the change when that helps. Only `pr apply` changes the index: `git apply --3way`, and
+  `Project::stage` for a merge and for the removed todos.
+- **A submit runs on the branch that it goes into.** `pr submit --branch <work>` runs in the
+  checkout of that branch. `--branch` names the branch of the work. The submit writes the folder
+  in the current working tree. No command changes a branch that is not checked out.
+- **todoer does few git operations.** It reads the diff, the patch and old files, and `pr apply`
+  applies a patch. It never pushes or fetches.
 - **One lock.** Take `Project::lock` before a read that decides a change, and hold it until the
-  write or the commit is done.
+  write is done.
 - **A pull request is self-contained.** `pr.patch` is one squashed commit, for `git am`.
   `pr.diff` is the combined diff for the review. The review needs no branch. `pr.md` names no
   branch: the branch that holds the folder is the branch that it goes into, and `-n <pr>` finds
   it for an update.
-- **Patches never contain `.todoer/`.** Every git command of a submit excludes it.
-- **A dependency never makes a cycle.** `dep add` checks `Todos::reaches` first. A label
-  dependency is an edge to each other todo of the label, so `add`, `label add` and `labels mv`
-  call `Todos::check_no_cycle` before they write.
-- **Most todo commands do not commit.** Every todo command changes `.todoer/todos/` of the current
-  checkout, on any branch. Only `claim` and `unclaim` commit, so that a claim can be pushed at
-  once. The person commits the other changes. A feature branch can hold todos that are not on
-  another branch. A todoer pull request cannot add or change a todo.
-- **A done todo is gone.** `done` and `pr merge` remove the file, and remove its name from each
-  `dependsOn`. Thus a missing name in `dependsOn` is always a problem. When no other todo has a
-  label of `dependsOnLabels`, `done`, `pr merge`, `label rm` and `labels rm` remove the label from
-  it. Thus a label in `dependsOnLabels` that no other todo has is always a problem.
+- **A patch carries all the work, also in `.todoer/`.** Every git command of a submit excludes
+  only the folder of the pull request itself, `.todoer/prs/<name>/`.
+- **Todo commands do not commit.** Every todo command changes `.todoer/todos/` of the current
+  checkout, on any branch. The person commits the changes. A feature branch can hold todos that
+  are not on another branch. A todoer pull request carries the todos that the work adds, changes
+  and removes.
+- **A done todo is gone.** `done` removes the file. The work runs `done` and commits it. The todos
+  of a pull request are the todo files that its diff removes. `pr apply` removes them by name, so
+  an edit of a todo on the current branch does not stop the patch.
 - **There is no verdict.** A merge accepts a pull request. A committed review with comments asks
   for changes.
-- **A merge needs a review with no comments.** `pr merge` stops on any comment. Only
+- **A merge needs a review with no comments.** `pr apply --merge` stops on any comment. Only
   `pr submit --update` removes the comments.
-- **A failed merge changes nothing.** `pr merge` aborts `git am` on a failure. `--no-commit` tries
-  the patch on a copy of the index before it touches the working tree.
+- **A failed merge changes nothing.** `pr apply --merge` tries the patch on a copy of the index
+  before it touches the working tree.
 
 ## Commands
 

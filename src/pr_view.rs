@@ -1,4 +1,4 @@
-//! The text of `pr summary` and `pr details`.
+//! The text of `pr show`: the summary and the details.
 
 use crate::areas::Filter;
 use crate::colors;
