@@ -152,4 +152,5 @@ https://sobanieca.github.io/todoer/.
 
 ## Git
 
-Commit on the branch that is checked out. Commit only when asked.
+Commit on the branch that is checked out. Commit the changes when they are complete. Do not wait
+for the person to ask. Do not push. Push only when the person asks.

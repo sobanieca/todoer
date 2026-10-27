@@ -22,7 +22,7 @@ SKILL.md
 SKILL.md
 ---
 name: todoer
-description: Add todoer todos, implement them in a git worktree and submit the work as a todoer pull request, review a todoer pull request with the person, or address its review. Use when asked to add a todo, an issue, a task or a bug in a project with a .todoer/ folder, to work on todoer todos (files in .todoer/todos/, like .todoer/todos/fix-login.md) or on todoer pull requests in .todoer/prs/.
+description: Add todoer todos, implement them in a git worktree and submit the work as a todoer pull request, review a todoer pull request with the person, or address its review. Use only when the person explicitly asks to use todoer: to add a todoer todo, to work on a todoer todo (a file in .todoer/todos/, like .todoer/todos/fix-login.md) with todoer, or to review a todoer pull request in .todoer/prs/ or address its review. Do not use for other changes, also in a project with a .todoer/ folder.
 
 $ todoer skill --init [cwd: notes]
 not in a git repository - writing the skill to <tmp>/home for all projects
