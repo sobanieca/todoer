@@ -4,7 +4,7 @@ Run every command in a git project, in any checkout and on any branch. todoer re
 `.todoer/` folder of the current checkout. It does not know a main branch, and it has no settings
 file. todoer never commits: you decide when to commit its changes.
 
-For the workflow from a new todo to a merge, read the [guide](https://sobanieca.github.io/todoer/guide.html).
+For the workflow from a new todo to a merge, read the [guide](https://adam.sobaniec.com/todoer/guide.html).
 
 ## Todos
 

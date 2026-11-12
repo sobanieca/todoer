@@ -1,4 +1,4 @@
-Website: https://sobanieca.github.io/todoer/
+Website: https://adam.sobaniec.com/todoer/
 
 # About
 
@@ -41,7 +41,7 @@ todoer is not released yet. Until version `1.0.0`, any part of it can change.
 todoer is one binary for Linux and macOS (x64 and arm64).
 
 ```sh
-curl -fsSL sobanieca.github.io/todoer/install.sh | bash
+curl -fsSL adam.sobaniec.com/todoer/install.sh | bash
 ```
 
 To install the latest release later, run:
@@ -54,13 +54,13 @@ The script installs todoer to `/usr/local/bin`, for all users. If that folder is
 script stops with an error. Then run it with `sudo`:
 
 ```sh
-curl -fsSL sobanieca.github.io/todoer/install.sh | sudo bash
+curl -fsSL adam.sobaniec.com/todoer/install.sh | sudo bash
 ```
 
 Or set your own folder with `INSTALL_DIR`. The folder must be on your `PATH`:
 
 ```sh
-curl -fsSL sobanieca.github.io/todoer/install.sh | INSTALL_DIR=~/.local/bin bash
+curl -fsSL adam.sobaniec.com/todoer/install.sh | INSTALL_DIR=~/.local/bin bash
 ```
 
 Or build it: `cargo build --release`, then copy `target/release/todoer` to a folder on your `PATH`.
@@ -96,7 +96,7 @@ it writes the skill in your home folder, for all projects. An agent with no skil
    step: a merge accepts the pull request and closes it. It stops while the review has comments. Without
    `--merge`, `todoer pr apply <pr>` only puts the changes in your working tree, for follow-up work.
 
-The guide is at https://sobanieca.github.io/todoer/guide.html. The commands are in
+The guide is at https://adam.sobaniec.com/todoer/guide.html. The commands are in
 [`docs/cli.md`](docs/cli.md). The files that todoer writes are in [`docs/data.md`](docs/data.md).
 
 ## Work on todoer

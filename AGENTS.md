@@ -148,7 +148,7 @@ Every push to `main` builds binaries for Linux (musl, static) and macOS (x64, ar
 them as the GitHub release `v<version>` (the version in `Cargo.toml`). `install.sh` and `todoer
 update` download these assets, so their names (`todoer-linux-x64`, ...) must not change. Every push
 to `main` also publishes `docs/`, `install.sh` and `src/help.txt` to GitHub Pages at
-https://sobanieca.github.io/todoer/.
+https://adam.sobaniec.com/todoer/.
 
 ## Git
 

@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 REPO="sobanieca/todoer"
 DEFAULT_INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="todoer"
-SCRIPT_URL="sobanieca.github.io/todoer/install.sh"
+SCRIPT_URL="adam.sobaniec.com/todoer/install.sh"
 
 usage() {
   cat <<USAGE
