@@ -1,6 +1,6 @@
 [package]
 name = "todoer"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2024"
 description = "Todos and pull requests of a git project as plain files, for people and AI agents"
 license = "MIT"

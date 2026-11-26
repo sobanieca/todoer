@@ -73,7 +73,6 @@ impl Session {
             .env("PATH", path)
             .env("HOME", self.root.join("home"))
             .env("XDG_CONFIG_HOME", self.root.join("config"))
-            .env("XDG_CACHE_HOME", self.root.join("cache"))
             .env("GIT_CONFIG_GLOBAL", self.root.join("home/.gitconfig"))
             .env("GIT_CONFIG_NOSYSTEM", "1")
             .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00Z")

@@ -1828,9 +1828,8 @@ wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)</span>
           <button type="button" id="copy-btn">Copy</button>
         </div>
         <div class="install-note">
-          <p>The script installs <code>todoer</code> to <code>/usr/local/bin</code>, for all users. If that folder is not writable, the script stops with an error. Then run it with <code>sudo</code>:</p>
-          <pre><code>curl -fsSL adam.sobaniec.com/todoer/install.sh | sudo bash</code></pre>
-          <p>Or pick your own folder with <code>INSTALL_DIR</code>. It must be a folder on your <code>PATH</code>:</p>
+          <p>The script installs <code>todoer</code> to <code>~/.todoer/bin</code>, with no <code>sudo</code> needed, and asks to add that folder to your <code>PATH</code> in your shell's startup file. Set <code>TODOER_NO_MODIFY_PATH=1</code> to leave the file unchanged.</p>
+          <p>Or pick your own folder with <code>INSTALL_DIR</code>:</p>
           <pre><code>curl -fsSL adam.sobaniec.com/todoer/install.sh | INSTALL_DIR=~/.local/bin bash</code></pre>
         </div>
         <p>A single binary for Linux and macOS (x64 and arm64), no runtime needed. Update it any time with <code>todoer update</code>. Run <code>todoer help</code> to see every command. todoer is not released yet: until version 1.0.0, any part of it can change.</p>

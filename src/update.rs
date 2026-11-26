@@ -165,15 +165,8 @@ fn install(temp: &Path, exe: &Path, binary: &[u8], version: &str) -> Result<(), 
 }
 
 fn cache_file() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CACHE_HOME")
-        .filter(|dir| !dir.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME")
-                .filter(|home| !home.is_empty())
-                .map(|home| Path::new(&home).join(".cache"))
-        })?;
-    Some(base.join("todoer").join("latest-version"))
+    let home = std::env::var_os("HOME").filter(|home| !home.is_empty())?;
+    Some(Path::new(&home).join(".todoer").join("latest-version"))
 }
 
 fn now() -> u64 {

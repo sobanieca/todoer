@@ -50,14 +50,12 @@ To install the latest release later, run:
 todoer update
 ```
 
-The script installs todoer to `/usr/local/bin`, for all users. If that folder is not writable, the
-script stops with an error. Then run it with `sudo`:
+The script installs todoer to `~/.todoer/bin`, with no `sudo` needed. If that folder is not on your
+`PATH`, the script asks to add it in your shell's startup file (`~/.bashrc`, `~/.zshrc`, fish's
+`conf.d` or `~/.profile`). Set `TODOER_NO_MODIFY_PATH=1` to leave the file unchanged. Run as root,
+the script installs to `/usr/local/bin`.
 
-```sh
-curl -fsSL adam.sobaniec.com/todoer/install.sh | sudo bash
-```
-
-Or set your own folder with `INSTALL_DIR`. The folder must be on your `PATH`:
+Or set your own folder with `INSTALL_DIR`:
 
 ```sh
 curl -fsSL adam.sobaniec.com/todoer/install.sh | INSTALL_DIR=~/.local/bin bash
