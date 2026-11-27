@@ -98,6 +98,7 @@ pub fn execute() -> Result<(), String> {
     write_cache(&latest);
     if !is_newer(&latest, VERSION) {
         logger::info(&format!("todoer is up to date ({VERSION})"));
+        crate::commands::skill::refresh();
         return Ok(());
     }
 
@@ -133,7 +134,20 @@ pub fn execute() -> Result<(), String> {
     result?;
 
     logger::info(&format!("todoer is now {latest}"));
+    refresh_skills(&exe);
     Ok(())
+}
+
+/// The skill text is part of the binary, so the new binary rewrites the
+/// skills written by `todoer skill --init`.
+fn refresh_skills(exe: &Path) {
+    let status = std::process::Command::new(exe)
+        .args(["skill", "--refresh"])
+        .env(NO_UPDATE_CHECK_ENV, "1")
+        .status();
+    if !status.is_ok_and(|status| status.success()) {
+        logger::error("cannot update the skills - run 'todoer skill --init' again");
+    }
 }
 
 fn install(temp: &Path, exe: &Path, binary: &[u8], version: &str) -> Result<(), String> {

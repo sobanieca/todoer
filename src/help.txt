@@ -57,6 +57,7 @@ Other:
   skill [--init]            print the agent workflow, or write it as a skill; in a git repository,
                             --init writes it in the root of the repository; outside a git
                             repository, it writes it in the home folder, for all projects
-  update                    install the latest release
+  update                    install the latest release and rewrite the skills that
+                            'skill --init' wrote
   help, --help              print this help
   version, --version        print the version

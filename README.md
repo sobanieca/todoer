@@ -73,8 +73,9 @@ git add .todoer && git commit -m "Plan the auth work"
 ```
 
 `todoer skill --init` writes the skill in the root of the git repository. Outside a git repository,
-it writes the skill in your home folder, for all projects. An agent with no skill can run
-`todoer skill` to learn the workflow.
+it writes the skill in your home folder, for all projects. Running it again replaces the skill, and
+`todoer update` rewrites the skills that it wrote (see [docs/cli.md](docs/cli.md)). An agent with no
+skill can run `todoer skill` to learn the workflow.
 
 1. **Implement.** Ask an agent to implement `fix-login-crash` or a list of todos in a worktree. It makes a new branch from
    your branch, runs `todoer done fix-login-crash` there, and commits.

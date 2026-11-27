@@ -10,9 +10,8 @@ wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
 wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)
 
 $ todoer skill --init
-exit code: 1
---- stderr
-error: <tmp>/repo/.agents/skills/todoer/SKILL.md exists - remove it to write the skill again
+updated .agents/skills/todoer/SKILL.md  (Codex, Cursor)
+updated .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)
 
 $ ls .claude/skills/todoer .agents/skills/todoer && head -3 .claude/skills/todoer/SKILL.md
 .agents/skills/todoer:
@@ -30,9 +29,9 @@ wrote .agents/skills/todoer/SKILL.md  (Codex, Cursor)
 wrote .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)
 
 $ todoer skill --init [cwd: notes]
-exit code: 1
---- stderr
-error: <tmp>/home/.agents/skills/todoer/SKILL.md exists - remove it to write the skill again
+not in a git repository - writing the skill to <tmp>/home for all projects
+updated .agents/skills/todoer/SKILL.md  (Codex, Cursor)
+updated .claude/skills/todoer/SKILL.md  (Claude Code, Cursor)
 
 $ ls ~/.claude/skills/todoer ~/.agents/skills/todoer
 <tmp>/home/.agents/skills/todoer:
